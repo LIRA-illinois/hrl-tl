@@ -1,0 +1,15 @@
+gymnasium
+imageio
+matplotlib
+mujoco
+moviepy
+numpy
+opencv-python
+pandas
+scikit-learn
+scipy
+sympy
+tensorboard
+torch
+tqdm
+wandb
