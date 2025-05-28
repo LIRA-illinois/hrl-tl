@@ -21,7 +21,7 @@ Commit messages should be clear and concise, following the format:
 <type>(<scope>): <body>
 ```
 Where:
-- `<type>` is the type of change (e.g., feat, fix, docs, style, ref, perf, test)
+- `<type>` is the type of change (e.g., feat, fix, docs, style, ref, perf, test, chore)
 -- `feat` is for new features
 -- `fix` is for bug fixes
 -- `docs` is for documentation changes
@@ -29,6 +29,7 @@ Where:
 -- `ref` is for code refactoring (e.g., renaming variables, removing unused code, etc.)
 -- `perf` is for performance improvements
 -- `test` is for adding or updating tests
+-- `chore` is for changes that do not modify the source or test code (e.g., updating dependencies, build scripts, etc.)
 - `<scope>` is the area of the codebase affected (optional)
 - `<body>` is a brief description of the change
 
