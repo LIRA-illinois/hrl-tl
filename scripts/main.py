@@ -3,11 +3,12 @@ import random
 import uuid
 
 import wandb
-from algorithms.PPO import PPO
-from algorithms.TL_HRL import TL_HRL
-from utils.get_args import get_args
-from utils.rl import call_env
-from utils.utils import (
+
+from hrl_tl.algorithms.PPO import PPO
+from hrl_tl.algorithms.TL_HRL import TL_HRL
+from hrl_tl.utils.get_args import get_args
+from hrl_tl.utils.rl import call_env
+from hrl_tl.utils.utils import (
     concat_csv_columnwise_and_delete,
     override_args,
     seed_all,
