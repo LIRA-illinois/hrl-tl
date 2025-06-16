@@ -9,7 +9,7 @@ from torch.optim.lr_scheduler import LambdaLR
 from utils.rl import estimate_advantages
 
 
-class TLHRLLearner(Base):
+class BaseHRLLearner(Base):
     def __init__(
         self,
         hl_actor: PPO_Actor,
