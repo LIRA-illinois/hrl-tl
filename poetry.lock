@@ -464,7 +464,7 @@ pydantic = "^2.11.5"
 type = "git"
 url = "https://github.com/LIRA-illinois/gym-multigrid"
 reference = "dev"
-resolved_reference = "d5ec71596b3810d3cde9651aa7792b0659ec5cf1"
+resolved_reference = "5eb2fe00a513c6dde757c8da52bbd390e26394cf"
 
 [[package]]
 name = "gym-tl-tools"
@@ -485,7 +485,7 @@ spottl = "^2.13"
 type = "git"
 url = "https://github.com/miki-yuasa/gym-tl-tools.git"
 reference = "HEAD"
-resolved_reference = "00cd31ce3328a5ff9e9ecde14999e2bc592a4f6e"
+resolved_reference = "fd5b6ced88c2ed1bbb94902bfe01a11cb5e930db"
 
 [[package]]
 name = "gymnasium"
