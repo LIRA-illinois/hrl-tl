@@ -16,6 +16,7 @@ dependencies = [
     "gym-multigrid @ git+https://github.com/LIRA-illinois/gym-multigrid@dev",
     "opencv-python (>=4.11.0.86,<5.0.0.0)",
     "gym-tl-tools @ git+https://github.com/miki-yuasa/gym-tl-tools.git",
+    "stable-baselines3 (>=2.6.0,<3.0.0)",
 ]
 
 
