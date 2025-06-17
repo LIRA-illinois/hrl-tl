@@ -5,11 +5,13 @@ import numpy as np
 from gym_multigrid.envs.rooms import RoomsEnv
 from gym_multigrid.typing import Position
 from gym_multigrid.utils.map import distance_area_point, distance_points
+from gymnasium import Env, Wrapper
 from numpy.typing import NDArray
 
 
 def var_value_info_generator(
-    env: gym.Env[NDArray[np.int64], np.int64],
+    env: Env[NDArray[np.int64], np.int64]
+    | Wrapper[NDArray[np.int64], np.int64, NDArray[np.int64], np.int64],
     obs: NDArray[np.int64],
     info: dict[str, Any],
 ) -> dict[str, Any]:
@@ -21,10 +23,21 @@ def var_value_info_generator(
     top_doorway: Position = (6, 2)
     right_doorway: Position = (10, 6)
 
-    lavas: list[Position] = env.lava_pos
-    holes: list[Position] = env.hole_pos
-    goal: Position = env.goal_pos
-    agent: Position = env.agents[0].pos
+    match env:
+        case RoomsEnv():
+            # For RoomsEnv, we can directly access the positions
+            lavas: list[Position] = env.lava_pos
+            holes: list[Position] = env.hole_pos
+            goal: Position = env.goal_pos
+            agent: Position = env.agents[0].pos
+        case Wrapper():
+            # For wrapped environments, we need to extract the positions from the observation
+            lavas: list[Position] = env.unwrapped.lava_pos
+            holes: list[Position] = env.unwrapped.hole_pos
+            goal: Position = env.unwrapped.goal_pos
+            agent: Position = env.unwrapped.agents[0].pos
+        case _:
+            raise ValueError("Unsupported environment type")
 
     d_ld: float = distance_points(agent, left_doorway)
     d_bd: float = distance_points(agent, bottom_doorway)
