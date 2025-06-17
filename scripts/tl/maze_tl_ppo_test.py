@@ -12,7 +12,7 @@ from stable_baselines3.common.vec_env.subproc_vec_env import SubprocVecEnv
 from hrl_tl.envs.tl_fourroom import var_value_info_generator
 
 if __name__ == "__main__":
-    spec_id: int = 2
+    spec_id: int = 0
 
     tl_specs: list[str] = [
         "F(psi_td) & G(!psi_lv)",
@@ -29,11 +29,11 @@ if __name__ == "__main__":
         Predicate(name="psi_lv", formula="d_lv < 0.5"),
         Predicate(name="psi_hl", formula="d_hl < 0.5"),
     ]
-    retrain_model: bool = True
+    retrain_model: bool = False
     gpu_id: int = 1
-    model_name: str = "maze_tl_ppo_test_" + replace_special_characters(tl_spec)
+    model_name: str = "maze_tl_ppo_test_rand_" + replace_special_characters(tl_spec)
     model_save_dir: str = "out/poc/low-level"
-    total_timesteps: int = 15_000
+    total_timesteps: int = 50_000
     max_episode_steps: int = 100
     n_envs: int = 10
     callback_save_frequency: int = int(total_timesteps / 10 / n_envs)
@@ -62,6 +62,7 @@ if __name__ == "__main__":
     env_kwargs = {
         "max_episode_steps": max_episode_steps,
         "spawn_type": spec_id,
+        "random_init_pos": True,
         "layout_config": {
             "field_map": [
                 "#############",
@@ -185,6 +186,7 @@ if __name__ == "__main__":
         wrapper_kwargs=wrapper_kwargs,
     )
 
+    env_kwargs["random_init_pos"] = False  # Disable random init pos for demo env
     demo_env = gym.make(
         "multigrid-rooms-v0",
         render_mode="rgb_array",
@@ -222,7 +224,9 @@ if __name__ == "__main__":
         action, _ = model.predict(obs)
         # Ensure action is a numpy int64 scalar
         obs, reward, terminated, truncated, info = demo_env.step(action)
-        print(f"Reward: {reward}, Terminated: {terminated}, Truncated: {truncated}")
+        print(
+            f"Reward: {reward:.2f}, Terminated: {terminated}, Truncated: {truncated}, Success: {info['is_success']}"
+        )
         rewards.append(reward)
         frame = demo_env.render()
         frames.append(frame)
