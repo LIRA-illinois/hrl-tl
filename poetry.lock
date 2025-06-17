@@ -546,13 +546,13 @@ gymnasium = ">=0.28"
 imageio = ">=2.28.1"
 matplotlib = ">=3.7.1"
 numpy = ">=1.24.3"
-pydantic = "^2.11.5"
+pydantic = "^2.0"
 
 [package.source]
 type = "git"
 url = "https://github.com/LIRA-illinois/gym-multigrid"
 reference = "dev"
-resolved_reference = "5eb2fe00a513c6dde757c8da52bbd390e26394cf"
+resolved_reference = "9bd2372f8c1948bfd86fc6b70bbce12e51136691"
 
 [[package]]
 name = "gym-tl-tools"
@@ -567,13 +567,14 @@ develop = false
 [package.dependencies]
 gymnasium = ">=0.26"
 numpy = ">=1.21"
+pydantic = "^2.0"
 spottl = "^2.13"
 
 [package.source]
 type = "git"
 url = "https://github.com/miki-yuasa/gym-tl-tools.git"
 reference = "HEAD"
-resolved_reference = "fd5b6ced88c2ed1bbb94902bfe01a11cb5e930db"
+resolved_reference = "fdaeb4cf318e987da883d231b30deab43f31ee68"
 
 [[package]]
 name = "gymnasium"
