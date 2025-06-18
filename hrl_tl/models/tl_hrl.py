@@ -31,7 +31,7 @@ class TLHRLLearner(Base):
         frequency: int = 10,
         device: str = "cpu",
     ):
-        super(TL_HRL_Learner, self).__init__()
+        super().__init__()
 
         # constants
         self.name = "TL_HRL_Learner"
