@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from numpy import ndarray as NDArray
 
-from hrl_tl.utils.tl import sort_tl_weights, weights2ltl
+from hrl_tl.wrappers.utils import sort_tl_weights, weights2ltl
 
 
 def test_sort_tl_weights():
