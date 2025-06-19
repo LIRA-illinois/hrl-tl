@@ -571,7 +571,7 @@ pydantic = "^2.0"
 type = "git"
 url = "https://github.com/LIRA-illinois/gym-multigrid"
 reference = "dev"
-resolved_reference = "376d77c2596398192f378670a27f439272b3d8e4"
+resolved_reference = "0c738a4baed67c52aabe24f09d93e2a8231c00db"
 
 [[package]]
 name = "gym-tl-tools"
