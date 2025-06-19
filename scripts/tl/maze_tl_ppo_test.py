@@ -233,4 +233,4 @@ if __name__ == "__main__":
     demo_env.close()
     print(f"Total reward: {sum(rewards)}")
     video_path = os.path.join(animation_save_dir, f"{model_name}.gif")
-    imageio.mimsave(video_path, frames, fps=10, dpi=300, loop=10)
+    imageio.mimsave(video_path, frames, fps=10, dpi=300, loop=10)  # type: ignore
