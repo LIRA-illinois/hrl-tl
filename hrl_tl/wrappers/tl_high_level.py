@@ -15,7 +15,7 @@ from hrl_tl.wrappers.utils import sort_tl_weights, weights2ltl
 
 LowLevelObsType = TypeVar("LowLevelObsType", covariant=True)
 LowLevelActType = TypeVar("LowLevelActType", covariant=True)
-PolicyArgsType = TypeVar("PolicyArgsType", bound=dict)
+PolicyArgsType = TypeVar("PolicyArgsType", bound=dict[str, Any])
 
 
 class LowLevelEnv(Protocol, Generic[LowLevelObsType, LowLevelActType]):
@@ -59,7 +59,6 @@ class TLHighLevelWrapper(
     def __init__(
         self,
         env: Env[ObsType, ActType],
-        predicate_names: list[str],
         low_level_policy: Callable[
             [ObsType, TLObservationReward[ObsType, ActType], PolicyArgsType],
             ActType,
@@ -69,23 +68,24 @@ class TLHighLevelWrapper(
     ) -> None:
         RecordConstructorArgs.__init__(
             self,
-            predicate_names=predicate_names,
             low_level_policy=low_level_policy,
             low_level_policy_args=low_level_policy_args,
             tl_wrapper_args=tl_wrapper_args,
         )
         Wrapper.__init__(self, env)
 
+        self.tl_wrapper_args = TLWrapperArgs.model_validate(tl_wrapper_args)
         self.action_space = MultiDiscrete(
-            nvec=[2] * (2 * len(predicate_names)),
+            nvec=[2] * (2 * len(self.tl_wrapper_args.atomic_predicates) ** 2),
             dtype=np.int64,
         )
 
         self.low_level_env: Env[ObsType, ActType] = copy.deepcopy(env)
         self.low_level_policy = low_level_policy
         self.low_level_policy_args = low_level_policy_args
-        self.predicate_names = predicate_names
-        self.tl_wrapper_args = TLWrapperArgs.model_validate(tl_wrapper_args)
+        self.predicate_names = [
+            predicate.name for predicate in self.tl_wrapper_args.atomic_predicates
+        ]
 
     def reset(
         self, *, seed: int | None = None, options: dict[str, Any] | None = None

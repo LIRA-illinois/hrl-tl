@@ -26,7 +26,7 @@ def sort_tl_weights(
     """
     if isinstance(tl_weights, Tensor):
         tl_weights = tl_weights.cpu().detach().numpy()
-    tl_weights = tl_weights.reshape(2 * num_predicates, 2 * num_predicates)
+    tl_weights = tl_weights.reshape(num_predicates, 2 * num_predicates)
     f_weights: NDArray[np.integer] = tl_weights[:num_predicates, :]
     g_weights: NDArray[np.integer] = tl_weights[num_predicates:, :]
     sorted_f_weights: list[list[int]] = np.flipud(np.unique(f_weights, axis=0)).tolist()

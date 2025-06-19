@@ -10,6 +10,7 @@ from gym_tl_tools import TLObservationReward, replace_special_characters
 from gymnasium import Env, Wrapper
 from numpy.typing import NDArray
 from pydantic import BaseModel, ConfigDict
+from stable_baselines3 import PPO
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecEnv
 
@@ -90,8 +91,28 @@ class PolicyArgs(BaseModel):
     This can be extended with additional parameters as needed.
     """
 
-    algorithm: type[BaseAlgorithm]
-    algo_config: dict[str, Any]
+    algorithm: type[BaseAlgorithm] = PPO
+    algo_config: dict[str, Any] = {
+        "policy": "MultiInputPolicy",
+        "learning_rate": 0.0003,
+        "n_steps": 1000,
+        "batch_size": 1000,
+        "n_epochs": 40,
+        "gamma": 0.99,
+        "gae_lambda": 0.95,
+        "clip_range": 0.2,
+        "clip_range_vf": None,
+        "ent_coef": 0.0,
+        "vf_coef": 0.5,
+        "max_grad_norm": 0.5,
+        "use_sde": False,
+        "sde_sample_freq": -1,
+        "rollout_buffer_class": None,
+        "rollout_buffer_kwargs": None,
+        "target_kl": None,
+        "stats_window_size": 100,
+        "policy_kwargs": {"net_arch": [128, 128]},
+    }
     model_save_dir: str = "out/maze/ltl_ll/ll_policies"
     model_name: str = "final_model"
     training_config: TrainingConfig = TrainingConfig()
@@ -103,7 +124,37 @@ class PolicyArgs(BaseModel):
 def maze_low_level_policy(
     obs: NDArray[np.int64],
     low_level_env: TLObservationReward[NDArray[np.int64], np.int64],
-    args: PolicyArgsDict,
+    args: PolicyArgsDict = {
+        "algorithm": PPO,
+        "algo_config": {
+            "policy": "MultiInputPolicy",
+            "learning_rate": 0.0003,
+            "n_steps": 1000,
+            "batch_size": 1000,
+            "n_epochs": 40,
+            "gamma": 0.99,
+            "gae_lambda": 0.95,
+            "clip_range": 0.2,
+            "clip_range_vf": None,
+            "ent_coef": 0.0,
+            "vf_coef": 0.5,
+            "max_grad_norm": 0.5,
+            "use_sde": False,
+            "sde_sample_freq": -1,
+            "rollout_buffer_class": None,
+            "rollout_buffer_kwargs": None,
+            "target_kl": None,
+            "stats_window_size": 100,
+            "policy_kwargs": {"net_arch": [128, 128]},
+        },
+        "model_save_dir": "out/maze/ltl_ll/ll_policies",
+        "model_name": "final_model",
+        "training_config": {
+            "total_timesteps": 50_000,
+            "n_envs": 10,
+        },
+        "device": "cuda:0",
+    },
 ) -> np.int64:
     """
     A simple low-level policy for the FourRoom environment.
@@ -111,6 +162,9 @@ def maze_low_level_policy(
     """
     # For simplicity, we return a random action
     policy_args: PolicyArgs = PolicyArgs.model_validate(args)
+    policy_args.algo_config["n_steps"] = int(
+        policy_args.algo_config["batch_size"] / policy_args.training_config.n_envs
+    )
     tl_spec_name: str = replace_special_characters(low_level_env.automaton.tl_spec)
     model_path = os.path.join(
         policy_args.model_save_dir, tl_spec_name, policy_args.model_name + ".zip"

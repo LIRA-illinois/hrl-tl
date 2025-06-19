@@ -1,3 +1,4 @@
+import copy
 import os
 from typing import Any
 
@@ -9,12 +10,15 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env.subproc_vec_env import SubprocVecEnv
 
-from hrl_tl.envs.tl_fourroom import var_value_info_generator
-from hrl_tl.wrappers.tl_high_level import TLHighLevelWrapper
+from hrl_tl.envs.tl_fourroom import (
+    PolicyArgsDict,
+    maze_low_level_policy,
+    var_value_info_generator,
+)
+from hrl_tl.wrappers.tl_high_level import TLHighLevelWrapper, TLWrapperArgsDict
 
 if __name__ == "__main__":
-    spec_id: int = 0
-
+    experiment_id: str = "2.b"
     predicates: list[Predicate] = [
         Predicate(name="psi_ld", formula="d_ld < 0.5"),
         Predicate(name="psi_bd", formula="d_bd < 0.5"),
@@ -27,14 +31,14 @@ if __name__ == "__main__":
     retrain_model: bool = False
     gpu_id: int = 1
     model_name: str = "final_model"
-    model_save_dir: str = "out/poc/low-level"
+    model_save_dir: str = f"out/maze/ltl_ll/{experiment_id}/"
     total_timesteps: int = 50_000
     max_episode_steps: int = 100
     n_envs: int = 10
     callback_save_frequency: int = int(total_timesteps / 10 / n_envs)
     batch_size: int = 1_000
     rl_config: dict[str, Any] = {
-        "policy": "MultiInputPolicy",
+        "policy": "MlpPolicy",
         "learning_rate": 0.0003,
         "n_steps": int(batch_size / n_envs),
         "batch_size": batch_size,
@@ -56,8 +60,9 @@ if __name__ == "__main__":
     }
     env_kwargs = {
         "max_episode_steps": max_episode_steps,
-        "spawn_type": spec_id,
-        "random_init_pos": True,
+        "render_mode": "rgb_array",
+        "spawn_type": 0,
+        "random_init_pos": False,
         "layout_config": {
             "field_map": [
                 "#############",
@@ -99,59 +104,10 @@ if __name__ == "__main__":
                         {"pos": (9, 9), "reward": -1},
                     ],
                 },
-                {
-                    "agent": (6, 2),
-                    "goal": {"pos": (3, 9), "reward": 1.0},
-                    "lavas": [
-                        {"pos": (10, 4), "reward": -1},
-                        {"pos": (8, 3), "reward": -1},
-                        {"pos": (5, 2), "reward": 0},
-                        {"pos": (4, 4), "reward": 0},
-                        {"pos": (5, 8), "reward": 0},
-                        {"pos": (3, 7), "reward": 0},
-                        {"pos": (10, 8), "reward": -1},
-                        {"pos": (8, 9), "reward": -1},
-                    ],
-                    "holes": [
-                        {"pos": (7, 2), "reward": 0},
-                        {"pos": (9, 5), "reward": 0},
-                        {"pos": (4, 3), "reward": -1},
-                        {"pos": (3, 2), "reward": -1},
-                        {"pos": (4, 9), "reward": 0},
-                        {"pos": (3, 6), "reward": 0},
-                        {"pos": (7, 8), "reward": -1},
-                        {"pos": (9, 9), "reward": -1},
-                    ],
-                },
-                {
-                    "agent": (3, 5),
-                    "goal": {"pos": (3, 9), "reward": 1.0},
-                    "lavas": [
-                        {"pos": (10, 4), "reward": -1},
-                        {"pos": (8, 3), "reward": -1},
-                        {"pos": (5, 2), "reward": 0},
-                        {"pos": (4, 4), "reward": 0},
-                        {"pos": (5, 8), "reward": 0},
-                        {"pos": (3, 7), "reward": 0},
-                        {"pos": (10, 8), "reward": -1},
-                        {"pos": (8, 9), "reward": -1},
-                    ],
-                    "holes": [
-                        {"pos": (7, 2), "reward": 0},
-                        {"pos": (9, 5), "reward": 0},
-                        {"pos": (4, 3), "reward": -1},
-                        {"pos": (3, 2), "reward": -1},
-                        {"pos": (4, 9), "reward": 0},
-                        {"pos": (3, 6), "reward": 0},
-                        {"pos": (7, 8), "reward": -1},
-                        {"pos": (9, 9), "reward": -1},
-                    ],
-                },
             ],
         },
     }
-    wrapper_kwargs = {
-        "tl_spec": tl_spec,
+    wrapper_kwargs: TLWrapperArgsDict = {
         "atomic_predicates": predicates,
         "var_value_info_generator": var_value_info_generator,
         "reward_config": {
@@ -166,47 +122,32 @@ if __name__ == "__main__":
     model_save_path: str = os.path.join(model_save_dir, model_name)
     animation_save_dir: str = os.path.join(model_save_path)
 
-    # env = gym.make(
-    #     "multigrid-rooms-v0", max_episode_steps=max_episode_steps, spawn_type=3
-    # )
+    env = gym.make("multigrid-rooms-v0", **env_kwargs)
     # env = TLObservationReward(env, **wrapper_kwargs)
-
-    env = make_vec_env(
-        "multigrid-rooms-v0",
-        n_envs=n_envs,
-        env_kwargs=env_kwargs,
-        vec_env_cls=SubprocVecEnv,
-        vec_env_kwargs={"start_method": "spawn"},
-        wrapper_class=TLObservationReward,
-        wrapper_kwargs=wrapper_kwargs,
+    high_level_env = TLHighLevelWrapper(
+        env, low_level_policy=maze_low_level_policy, tl_wrapper_args=wrapper_kwargs
     )
 
-    env_kwargs["random_init_pos"] = False  # Disable random init pos for demo env
-    demo_env = gym.make(
-        "multigrid-rooms-v0",
-        render_mode="rgb_array",
-        **env_kwargs,
-    )
-    demo_env = TLObservationReward(
-        demo_env,
-        **wrapper_kwargs,
-    )
+    demo_env = copy.deepcopy(env)
+
     if not os.path.exists(model_save_path) or retrain_model:
         os.makedirs(model_save_dir, exist_ok=True)
         model = PPO(
             **rl_config,
-            env=env,
+            env=high_level_env,
             verbose=1,
-            tensorboard_log=os.path.join(model_save_path, "tb"),
+            tensorboard_log=os.path.join(model_save_dir, "tb"),
             device="cuda:{}".format(gpu_id),
         )
         model.learn(total_timesteps=total_timesteps)
-        env.close()
+        high_level_env.close()
         # Save the model
         model.save(os.path.join(model_save_path, "final_model"))
     else:
         print(f"Model {model_name} already exists, loading...")
-        model = PPO.load(os.path.join(model_save_path, "final_model"), env=demo_env)
+        model = PPO.load(
+            os.path.join(model_save_path, "final_model"), env=high_level_env
+        )
     # Save the animation
 
     # Video generation using imageio
