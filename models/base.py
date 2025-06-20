@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 class Base(nn.Module):
     def __init__(self):
-        super(Base, self).__init__()
+        super().__init__()
 
         self.dtype = torch.float32
         self.device = torch.device("cpu")

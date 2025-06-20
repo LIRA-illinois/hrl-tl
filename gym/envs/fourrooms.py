@@ -60,10 +60,10 @@ class FourRooms(MultiGridEnv):
     def __init__(
         self,
         grid_type: int = 0,
-        max_steps: int = 150,
+        max_steps: int = 200,
         highlight_visible_cells: bool | None = False,
         tile_size: int = 10,
-        state_representation: str = "tensor",
+        state_representation: str = "positional_dict",
         render_mode: Literal["human", "rgb_array"] = "rgb_array",
     ) -> None:
         """
@@ -104,7 +104,7 @@ class FourRooms(MultiGridEnv):
         ]
 
         self.goal_positions = [
-            (3, 9),
+            (9, 9),
             (7, 9),
             (9, 9),
         ]
@@ -143,6 +143,38 @@ class FourRooms(MultiGridEnv):
             tile_size=tile_size,
         )
 
+        if self.state_representation == "tensor":
+            self._get_desired_goal()
+
+    def _get_desired_goal(self):
+        # Environment indices
+        empty_idx = 1
+        goal_idx = 8
+        agent_idx = 10
+        wall_idx = 2
+
+        # Get base state
+        state, _ = self.reset()
+        agent_pos = np.where(state == agent_idx)
+        state[agent_pos] = empty_idx
+        self.close()
+
+        goal_pos = np.where(state[:, :, 0] == goal_idx)
+        x, y = goal_pos[0][0], goal_pos[1][0]
+        goal_pos = [x, y]
+        possible_agent_pos = np.argwhere(state[:, :, 0] == empty_idx)
+
+        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        for dx, dy in directions:
+            new_x, new_y = goal_pos[0] + dx, goal_pos[1] + dy
+            # Check bounds and if the cell is empty or positive
+            if (new_x, new_y) in possible_agent_pos:
+                state[new_x, new_y, 0] = agent_idx
+                self.desired_goal = state
+                break
+            else:
+                raise ValueError("Couldn't find the desired goal.")
+
     def _set_observation_space(self) -> spaces.Dict | spaces.Box:
         match self.state_representation:
             case "positional":
@@ -150,6 +182,15 @@ class FourRooms(MultiGridEnv):
                     low=np.array([0, 0, 0, 0], dtype=np.float32),
                     high=np.array(
                         [self.width, self.height, self.width, self.height],
+                        dtype=np.float32,
+                    ),
+                    dtype=np.float32,
+                )
+            case "positional_dict":
+                observation_space = spaces.Box(
+                    low=np.array([0, 0], dtype=np.float32),
+                    high=np.array(
+                        [1, 1],
                         dtype=np.float32,
                     ),
                     dtype=np.float32,
@@ -337,15 +378,36 @@ class FourRooms(MultiGridEnv):
         self,
     ):
         if self.state_representation == "positional":
-            obs = np.array(
-                [
-                    self.agents[0].pos[0],
-                    self.agents[0].pos[1],
-                    self.goal_positions[self.grid_type][0],
-                    self.goal_positions[self.grid_type][1],
-                ]
-            )
+            # obs = np.array(
+            #     [
+            #         self.agents[0].pos[0],
+            #         self.agents[0].pos[1],
+            #         self.goal_positions[self.grid_type][0],
+            #         self.goal_positions[self.grid_type][1],
+            #     ]
+            # )
+            obs = np.array([self.agents[0].pos[0], self.agents[0].pos[1]])
             obs = obs / np.maximum(self.grid_size[0], self.grid_size[1])
+        elif self.state_representation == "positional_dict":
+            obs = {
+                "observation": np.array(
+                    [
+                        self.agents[0].pos[0]
+                        / np.maximum(self.grid_size[0], self.grid_size[1]),
+                        self.agents[0].pos[1]
+                        / np.maximum(self.grid_size[0], self.grid_size[1]),
+                    ]
+                ),
+                "desired_goal": np.array(
+                    [
+                        self.goal_positions[self.grid_type][0]
+                        / np.maximum(self.grid_size[0], self.grid_size[1]),
+                        self.goal_positions[self.grid_type][1]
+                        / np.maximum(self.grid_size[0], self.grid_size[1]),
+                    ]
+                ),
+            }
+
         elif self.state_representation == "tensor":
             obs = [
                 self.grid.encode_for_agents(agent_pos=self.agents[i].pos)

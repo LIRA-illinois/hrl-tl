@@ -1,4 +1,5 @@
 import datetime
+import os
 import random
 import uuid
 
@@ -16,6 +17,8 @@ from utils.utils import (
 )
 
 wandb.require("core")
+
+os.environ["WANDB_SILENT"] = "true"
 
 
 def run(args, seed: int, unique_id: int, exp_time: str):
