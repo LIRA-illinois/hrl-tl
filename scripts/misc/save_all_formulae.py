@@ -21,6 +21,7 @@ if __name__ == "__main__":
     specifications: list[str] = generate_all_specifications(predicates, num_processes)
 
     print(f"Saving specifications to {specification_save_path}...")
+    print(f"Number of specifications generated: {len(specifications)}")
     saved_data: dict[str, Any] = {
         "predicates": predicates,
         "num_specifications": len(specifications),
