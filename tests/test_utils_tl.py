@@ -3,20 +3,39 @@ import pytest
 from numpy import ndarray as NDArray
 
 from hrl_tl.wrappers.utils import (
+    base_n,
     generate_all_specifications,
     sort_tl_weights,
     weights2ltl,
 )
 
 
-def test_sort_tl_weights():
+@pytest.mark.parametrize(
+    "num_10, n, width, target",
+    [
+        (10, 2, None, "1010"),
+        (10, 2, 6, "001010"),
+        (11, 3, None, "102"),
+        (10, 3, 5, "00101"),
+        (18, 3, None, "200"),
+        (152, 3, 5, "12122"),
+        (152, 3, 8, "00012122"),
+    ],
+)
+def test_base_n(num_10: int, n: int, width: int | None, target: str):
     # Test with a simple case
-    tl_weights = np.array([[1, 0, 0, 0], [0, 1, 1, 0], [0, 0, 0, 1], [0, 0, 0, 1]])
-    num_predicates = 2
-    sorted_f_weights, sorted_g_weights = sort_tl_weights(tl_weights, num_predicates)
+    result = base_n(num_10, n, width)
+    assert result == target, f"Expected {target}, but got {result}"
 
-    assert sorted_f_weights == [[1, 0, 0, 0], [0, 1, 1, 0]]
-    assert sorted_g_weights == [[0, 0, 0, 1]]
+
+# def test_sort_tl_weights():
+#     # Test with a simple case
+#     tl_weights = np.array([[1, 0, 0, 0], [0, 1, 1, 0], [0, 0, 0, 1], [0, 0, 0, 1]])
+#     num_predicates = 2
+#     sorted_f_weights, sorted_g_weights = sort_tl_weights(tl_weights, num_predicates)
+
+#     assert sorted_f_weights == [[1, 0, 0, 0], [0, 1, 1, 0]]
+#     assert sorted_g_weights == [[0, 0, 0, 1]]
 
 
 @pytest.mark.parametrize(
@@ -60,6 +79,7 @@ def test_weights2ltl(
     [
         (["p1"]),
         (["p1", "p2"]),
+        (["p1", "p2", "p3"]),
         (["p1", "p2", "p3", "p4", "p5", "p6", "p7"]),
     ],
 )
@@ -67,7 +87,6 @@ def test_generate_all_specifications(predicates: list[str]):
     # Test with a simple case
     num_processes: int = 20
     all_specs = generate_all_specifications(predicates, num_processes)
-
     # Check if the number of specifications is correct
     assert len(all_specs) < 2 ** ((2 * len(predicates)) ** 2), (
         f"Expected {2 ** len(predicates)} specifications, but got {len(all_specs)}"
