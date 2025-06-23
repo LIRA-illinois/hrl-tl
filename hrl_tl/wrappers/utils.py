@@ -224,6 +224,7 @@ def _generate_specification(
     len_predicates: int,
     all_predicates: list[str],
     num_clauses: int,
+    max_num_predicates: int,
 ) -> str | None:
     ter_rep: str = base_n(i, 3, width=num_elements)
     specification_weights: list[int] = [int(bit) for bit in ter_rep]
@@ -237,6 +238,8 @@ def _generate_specification(
         return None
     tl_spec = f"{spot.simplify(spot.formula(clause_spec))}"
     if tl_spec and (tl_spec == "0" or tl_spec == "1"):
+        return None
+    if len(get_used_predicates(tl_spec, all_predicates)) > max_num_predicates:
         return None
     return tl_spec
 
@@ -278,10 +281,15 @@ def _combine_specs(args: tuple[str, str, list[str]]) -> str | None:
 
 
 def generate_all_specifications(
-    predicates: list[str], num_processes: int, num_clauses: int | None = None
+    predicates: list[str],
+    num_processes: int,
+    num_clauses: int | None = None,
+    max_num_predicates: int | None = None,
 ) -> list[str]:
     if num_clauses is None:
         num_clauses = len(predicates)
+    if max_num_predicates is None:
+        max_num_predicates = len(predicates)
     num_elements: int = len(predicates) * num_clauses
     total_number_of_specifications: int = 3**num_elements
 
@@ -293,7 +301,14 @@ def generate_all_specifications(
         specs = pool.starmap(
             _generate_specification,
             [
-                (i, num_elements, len(predicates), all_predicates, num_clauses)
+                (
+                    i,
+                    num_elements,
+                    len(predicates),
+                    all_predicates,
+                    num_clauses,
+                    max_num_predicates,
+                )
                 for i in range(total_number_of_specifications)
             ],
         )
@@ -302,6 +317,9 @@ def generate_all_specifications(
     specifications: list[str] = sorted(specs, key=len)
 
     num_clause_specs: int = len(specifications)
+    print(
+        f"Generated {num_clause_specs} specifications with {len(predicates)} predicates and {num_clauses} clauses."
+    )
     indices: list[int] = list(range(num_clause_specs))
     perms: list[tuple[int, int]] = list(itertools.permutations(indices, 2))
 

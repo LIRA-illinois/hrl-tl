@@ -15,12 +15,15 @@ if __name__ == "__main__":
         "psi_hl",
     ]
     num_clauses: int = 2
+    max_num_predicates: int = 2
     num_processes: int = 128
-    specification_save_path: str = "out/maze/all_formulae.json"
+    specification_save_path: str = (
+        f"out/maze/all_formulae_{num_clauses}_cla_{max_num_predicates}_max_pred.json"
+    )
 
     print(f"Generating all specifications for {len(predicates)} predicates...")
     specifications: list[str] = generate_all_specifications(
-        predicates, num_processes, num_clauses
+        predicates, num_processes, num_clauses, max_num_predicates
     )
 
     print(f"Saving specifications to {specification_save_path}...")
