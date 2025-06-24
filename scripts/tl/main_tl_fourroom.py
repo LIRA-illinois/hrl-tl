@@ -5,7 +5,9 @@ from typing import Any
 import gym_multigrid
 import gymnasium as gym
 import imageio
+import numpy as np
 from gym_tl_tools import Predicate, TLObservationReward, replace_special_characters
+from numpy.typing import NDArray
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env.subproc_vec_env import SubprocVecEnv
@@ -18,7 +20,13 @@ from hrl_tl.envs.tl_fourroom import (
 from hrl_tl.wrappers.tl_high_level import TLHighLevelWrapper, TLWrapperArgsDict
 
 if __name__ == "__main__":
-    experiment_id: str = "2.b"
+    experiment_id: str = "3.a"
+    max_low_level_policy_steps: int = 10
+    num_clauses: int = 2
+    num_max_predicates: int = 2
+    all_formulae_file_path: str = (
+        f"out/maze/all_formulae_{num_clauses}_cla_{num_max_predicates}_max_pred.json"
+    )
     predicates: list[Predicate] = [
         Predicate(name="psi_ld", formula="d_ld < 0.5"),
         Predicate(name="psi_bd", formula="d_bd < 0.5"),
@@ -115,6 +123,37 @@ if __name__ == "__main__":
             ],
         },
     }
+    low_level_policy_args: PolicyArgsDict = {
+        "algorithm": PPO,
+        "algo_config": {
+            "policy": "MultiInputPolicy",
+            "learning_rate": 0.0003,
+            "n_steps": 1000,
+            "batch_size": 1000,
+            "n_epochs": 40,
+            "gamma": 0.99,
+            "gae_lambda": 0.95,
+            "clip_range": 0.2,
+            "clip_range_vf": None,
+            "ent_coef": 0.0,
+            "vf_coef": 0.5,
+            "max_grad_norm": 0.5,
+            "use_sde": False,
+            "sde_sample_freq": -1,
+            "rollout_buffer_class": None,
+            "rollout_buffer_kwargs": None,
+            "target_kl": None,
+            "stats_window_size": 100,
+            "policy_kwargs": {"net_arch": [128, 128]},
+        },
+        "model_save_dir": "out/maze/ltl_ll/ll_policies",
+        "model_name": "final_model",
+        "training_config": {
+            "total_timesteps": 50_000,
+            "n_envs": 10,
+        },
+        "device": "cuda:0",
+    }
     wrapper_kwargs: TLWrapperArgsDict = {
         "atomic_predicates": predicates,
         "var_value_info_generator": var_value_info_generator,
@@ -131,9 +170,15 @@ if __name__ == "__main__":
     animation_save_dir: str = os.path.join(model_save_path)
 
     env = gym.make("multigrid-rooms-v0", **env_kwargs)
-    # env = TLObservationReward(env, **wrapper_kwargs)
-    high_level_env = TLHighLevelWrapper(
-        env, low_level_policy=maze_low_level_policy, tl_wrapper_args=wrapper_kwargs
+    high_level_env = TLHighLevelWrapper[NDArray[np.int64], np.int64, PolicyArgsDict](
+        env,
+        low_level_policy=maze_low_level_policy,
+        low_level_policy_args=low_level_policy_args,
+        max_low_level_policy_steps=max_low_level_policy_steps,
+        num_clauses=num_clauses,
+        all_formulae_file_path=all_formulae_file_path,
+        stay_action=np.int64(0),
+        tl_wrapper_args=wrapper_kwargs,
     )
 
     demo_env = copy.deepcopy(env)

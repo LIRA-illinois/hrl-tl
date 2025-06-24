@@ -42,7 +42,7 @@ def base_n(num_10: int, n: int, width: int | None = None) -> str:
 
 
 def sort_tl_weights(
-    tl_weights: NDArray[np.integer] | Tensor, num_predicates: int
+    tl_weights: NDArray[np.integer] | Tensor, num_predicates: int, num_clauses: int
 ) -> tuple[list[list[int]], list[list[int]]]:
     """
     Sort the task specification by weights and return the sorted weights for F and G clauses.
@@ -64,12 +64,12 @@ def sort_tl_weights(
     """
     if isinstance(tl_weights, Tensor):
         tl_weights = tl_weights.cpu().detach().numpy()
-    tl_weights = tl_weights.reshape(2 * num_predicates, 2 * num_predicates)
+    tl_weights = tl_weights.reshape(2 * num_clauses, num_predicates)
     sorted_f_weights: list[list[int]] = sort_temp_clause_weights(
-        tl_weights[:num_predicates, :], num_predicates
+        tl_weights[:num_clauses, :], num_predicates, num_clauses
     )
     sorted_g_weights: list[list[int]] = sort_temp_clause_weights(
-        tl_weights[num_predicates:, :], num_predicates
+        tl_weights[num_clauses:, :], num_predicates, num_clauses
     )
 
     return sorted_f_weights, sorted_g_weights
@@ -127,8 +127,7 @@ def weights2ltl(
     """
     # Sort predicates alphabetically
     sorted_predicates = sorted(predicates)
-    negated_predicates = [f"!{p}" for p in sorted_predicates]
-    all_predicates = sorted_predicates + negated_predicates
+    all_predicates = sorted_predicates
 
     f_clause: str = weights2temp_clause(f_weights, all_predicates)
     g_clause: str = weights2temp_clause(g_weights, all_predicates)

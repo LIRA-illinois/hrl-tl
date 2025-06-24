@@ -1,4 +1,5 @@
 import copy
+import json
 from collections.abc import Callable
 from typing import Any, Generic, Protocol, SupportsFloat, TypedDict, TypeVar
 
@@ -15,7 +16,7 @@ from hrl_tl.wrappers.utils import sort_tl_weights, weights2ltl
 
 LowLevelObsType = TypeVar("LowLevelObsType", covariant=True)
 LowLevelActType = TypeVar("LowLevelActType", covariant=True)
-PolicyArgsType = TypeVar("PolicyArgsType", bound=dict[str, Any])
+PolicyArgsType = TypeVar("PolicyArgsType", covariant=True)
 
 
 class LowLevelEnv(Protocol, Generic[LowLevelObsType, LowLevelActType]):
@@ -64,19 +65,36 @@ class TLHighLevelWrapper(
             ActType,
         ],
         low_level_policy_args: PolicyArgsType = {},
+        max_low_level_policy_steps: int = 10,
+        num_clauses: int = 2,
+        all_formulae_file_path: str = "out/maze/all_formulae_2_cla_2_max_pred.json",
+        stay_action: ActType = np.int64(0),
         tl_wrapper_args: TLWrapperArgsDict[ObsType, ActType] = {},
     ) -> None:
         RecordConstructorArgs.__init__(
             self,
             low_level_policy=low_level_policy,
             low_level_policy_args=low_level_policy_args,
+            max_low_level_policy_steps=max_low_level_policy_steps,
+            num_clauses=num_clauses,
+            all_formulae_file_path=all_formulae_file_path,
+            stay_action=stay_action,
             tl_wrapper_args=tl_wrapper_args,
         )
         Wrapper.__init__(self, env)
 
+        self.num_clauses: int = num_clauses
+        self.stay_action: ActType = stay_action
+        self.max_low_level_policy_steps: int = max_low_level_policy_steps
+
+        with open(all_formulae_file_path, "r") as f:
+            all_formulae = json.load(f)
+
+        self.specs: list[str] = all_formulae["specifications"]
+
         self.tl_wrapper_args = TLWrapperArgs.model_validate(tl_wrapper_args)
         self.action_space = MultiDiscrete(
-            nvec=[2] * (2 * len(self.tl_wrapper_args.atomic_predicates) ** 2),
+            nvec=[3] * (len(self.tl_wrapper_args.atomic_predicates) * 4),
             dtype=np.int64,
         )
 
@@ -95,6 +113,11 @@ class TLHighLevelWrapper(
         """
         obs, info = self.env.reset(seed=seed, options=options)
         self.last_obs: ObsType = obs
+
+        self.low_level_policy_step: int = 0
+        self.current_tl_spec: str | None = None
+        self.current_tl_env: TLObservationReward[ObsType, ActType] | None = None
+
         return obs, info
 
     def step(
@@ -104,17 +127,54 @@ class TLHighLevelWrapper(
         Takes a high-level action, converts it to a temporal logic specification,
         and uses the low-level policy to execute it in the low-level environment.
         """
-        f_weights, g_weights = sort_tl_weights(action, len(self.predicate_names))
-        tl_spec = weights2ltl(f_weights, g_weights, self.predicate_names)
 
-        tl_env = TLObservationReward[ObsType, ActType](
-            self.low_level_env, tl_spec=tl_spec, **self.tl_wrapper_args.model_dump()
-        )
+        if (
+            self.current_tl_spec is None
+            or self.low_level_policy_step >= self.max_low_level_policy_steps
+        ):
+            # Convert the high-level action to a temporal logic specification
+            self.low_level_policy_step = 0
 
-        low_level_action = self.low_level_policy(
-            self.last_obs, tl_env, self.low_level_policy_args
-        )
+            f_weights, g_weights = sort_tl_weights(
+                action, len(self.predicate_names), self.num_clauses
+            )
+            self.current_tl_spec = weights2ltl(
+                f_weights, g_weights, self.predicate_names
+            )
+            self.current_tl_env = TLObservationReward[ObsType, ActType](
+                copy.deepcopy(self.env),
+                tl_spec=self.current_tl_spec,
+                **self.tl_wrapper_args.model_dump(),
+            )
+            self.current_tl_env.automaton.reset()
+        else:
+            pass
+
+        if self.current_tl_spec in self.specs and self.current_tl_env is not None:
+            tl_env = TLObservationReward[ObsType, ActType](
+                self.low_level_env,
+                tl_spec=self.current_tl_spec,
+                **self.tl_wrapper_args.model_dump(),
+            )
+
+            low_level_action = self.low_level_policy(
+                self.last_obs, tl_env, self.low_level_policy_args
+            )
+
+            _, _, _, _, ll_info = self.current_tl_env.step(low_level_action)
+
+            if ll_info["is_aut_terminated"]:
+                self.current_tl_spec = None
+                self.current_tl_env = None
+        else:
+            # If the specification is not in the list, we return the stay action
+            self.current_tl_spec = None
+            self.current_tl_env = None
+            low_level_action = self.stay_action
+
         obs, reward, terminated, truncated, info = self.env.step(low_level_action)
         self.last_obs = obs
+
+        self.low_level_policy_step += 1
 
         return obs, reward, terminated, truncated, info
