@@ -2,9 +2,8 @@ import gymnasium as gym
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.tensorboard import SummaryWriter
-
 from log.wandb_logger import WandbLogger
+from torch.utils.tensorboard import SummaryWriter
 from trainer.hc_trainer import HCTrainer
 from utils.hc_sampler import HCSampler
 from utils.utils import print_model_summary
@@ -58,7 +57,7 @@ class TL_HRL:
 
     def define_policy(self):
         from models.layers.ppo_networks import PPO_Actor, PPO_Critic
-        from models.tl_hrl import TL_HRL_Learner
+        from models.tl_hrl import TLHRLLearner
 
         # high-level-actor
         # note that it outputs the state (goal-state)
@@ -67,7 +66,7 @@ class TL_HRL:
             hidden_dim=self.args.actor_dim,
             action_dim=np.prod(self.args.state_dim),
             activation=nn.Tanh(),
-            is_discrete=self.args.is_discrete,
+            is_discrete=True,
         )
         hl_critic = PPO_Critic(
             input_dim=np.prod(self.args.state_dim),

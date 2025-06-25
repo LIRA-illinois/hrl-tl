@@ -8,8 +8,10 @@ from models.layers.ppo_networks import PPO_Actor, PPO_Critic
 from torch.optim.lr_scheduler import LambdaLR
 from utils.rl import estimate_advantages
 
+from hrl_tl.models.tl_hrl import TLHRLLearner
 
-class TLHRLLearner(Base):
+
+class BaseHRLLearner(Base):
     def __init__(
         self,
         hl_actor: PPO_Actor,
@@ -31,7 +33,7 @@ class TLHRLLearner(Base):
         frequency: int = 10,
         device: str = "cpu",
     ):
-        super().__init__()
+        super(TLHRLLearner, self).__init__()
 
         # constants
         self.name = "TL_HRL_Learner"
