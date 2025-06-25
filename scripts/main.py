@@ -4,6 +4,7 @@ import uuid
 
 import wandb
 
+from hrl_tl.algorithms.HIRO import HIRO
 from hrl_tl.algorithms.PPO import PPO
 from hrl_tl.algorithms.TL_HRL import TL_HRL
 from hrl_tl.utils.get_args import get_args
