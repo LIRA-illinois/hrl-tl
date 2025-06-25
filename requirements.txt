@@ -13,3 +13,4 @@ tensorboard
 torch
 tqdm
 wandb
+plotly

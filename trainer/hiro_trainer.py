@@ -2,7 +2,10 @@ import os
 import time
 from collections import deque
 from copy import deepcopy
-
+import wandb
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.collections import LineCollection
 import gymnasium as gym
 import matplotlib.pyplot as plt
 import numpy as np
@@ -32,7 +35,7 @@ class HiroTrainer:
         self.writer = writer
 
         self.epochs = epochs
-        self.eval_interval = int(self.epochs // 100)
+        self.eval_interval = int(self.epochs // 1000)
         self.eval_num = eval_num
 
         self.last_min_return_mean = 1e10
@@ -54,6 +57,31 @@ class HiroTrainer:
             while pbar.n < self.epochs:
                 e = pbar.n + 1  # + 1 to avoid zero division
 
+                #### EVALUATIONS ####
+                if e >= self.eval_interval * eval_idx:
+                    ### Eval Loop
+                    self.policy.eval()
+                    eval_idx += 1
+
+                    eval_dict, supp_dict = self.evaluate()
+
+                    self.write_log(eval_dict, step=global_step, eval_log=True)
+                    self.write_image(supp_dict["progression"],
+                        step=global_step,
+                        logdir=f"images",
+                        name="goal_progression",)
+                    self.write_video(
+                        supp_dict["rendering"],
+                        step=global_step,
+                        logdir=f"videos",
+                        name="running_video",
+                    )
+
+                    self.last_return_mean.append(eval_dict[f"eval/return_mean"])
+                    self.last_return_std.append(eval_dict[f"eval/return_std"])
+
+                    self.save_model(global_step)
+
                 obs, _ = self.env.reset()
 
                 fg = obs["desired_goal"]
@@ -66,6 +94,7 @@ class HiroTrainer:
 
                 self.policy.set_final_goal(fg)
 
+                prev_policy = deepcopy(self.policy)
                 loss_dict_list = []
                 while not done:
                     # Take action
@@ -80,12 +109,27 @@ class HiroTrainer:
                     loss_dict = self.policy.learn(global_step)
                     loss_dict_list.append(loss_dict)
 
+
                     # Updates
                     s = n_s
                     episode_reward += r
                     step += 1
                     global_step += 1
                     self.policy.end_step()
+
+                # Compare weights between previous and current policy
+                param_diff = {}
+                for (name1, p1), (name2, p2) in zip(
+                    prev_policy.low_con.named_parameters(),
+                    self.policy.low_con.named_parameters()
+                ):
+                    assert name1 == name2, "Parameter names do not match"
+                    diff = (p1.data - p2.data).abs().mean().item()
+                    param_diff[name1] = diff
+
+                # Optionally log or print the parameter changes
+                for name, diff in param_diff.items():
+                    print(f"Parameter change in '{name}': {diff:.6f}")
 
                 self.policy.end_episode()
                 pbar.update(1)
@@ -94,30 +138,7 @@ class HiroTrainer:
                     self.average_dict_values(loss_dict_list), step=global_step
                 )
 
-                #### EVALUATIONS ####
-                if step >= self.eval_interval * eval_idx:
-                    ### Eval Loop
-                    self.policy.eval()
-                    eval_idx += 1
-
-                    eval_dict, running_video = self.evaluate()
-
-                    # Manual logging
-                    # fig, ax = plt.subplots()
-                    # ax.stem()
-
-                    self.write_log(eval_dict, step=step, eval_log=True)
-                    self.write_video(
-                        running_video,
-                        step=step,
-                        logdir=f"videos",
-                        name="running_video",
-                    )
-
-                    self.last_return_mean.append(eval_dict[f"eval/return_mean"])
-                    self.last_return_std.append(eval_dict[f"eval/return_std"])
-
-                    self.save_model(step)
+                
 
                 torch.cuda.empty_cache()
 
@@ -135,15 +156,22 @@ class HiroTrainer:
             state = state["observation"]
 
             self.policy.set_final_goal(fg)
-
+            subgoal = []
+            transitions = []
             for t in range(self.env.max_steps):
                 with torch.no_grad():
                     a, rew, next_state, done = self.policy.step(state, self.env, step)
+                    # if t == 0:
+                    #     print(state, a)
 
                 if num_episodes == 0:
                     # Plotting
                     image = self.env.render()
                     image_array.append(image)
+                    # record subgoal track
+                    subgoal.append(self.policy.sg + state)
+                    transitions.append(next_state)
+                    
 
                 state = next_state
                 ep_reward.append(rew)
@@ -159,6 +187,69 @@ class HiroTrainer:
                             ),
                         }
                     )
+                    if len(subgoal) > 0 and len(transitions) > 0:
+                        fig, ax = plt.subplots()
+                        ax.set_xlim(0, 1)
+                        ax.set_ylim(0, 1)
+
+                        # --------------------
+                        # Transition setup
+                        # --------------------
+                        transitions = np.array(transitions)  # shape: (T, 2)
+                        T = len(transitions)
+                        transition_segments = np.stack([transitions[:-1], transitions[1:]], axis=1)  # shape: (T-1, 2, 2)
+
+                        # --------------------
+                        # Subgoal setup
+                        # --------------------
+                        subgoal = np.array(subgoal)  # shape: (N, 2)
+                        N = len(subgoal)
+
+                        # --------------------
+                        # Shared temporal scale: total steps
+                        # --------------------
+                        total_steps = T + N - 2
+                        shared_norm = plt.Normalize(0, total_steps)
+
+                        # --------------------
+                        # Apply color to transitions
+                        # --------------------
+                        transition_colors = np.linspace(0, T - 2, T - 1)  # steps 0 to T-2
+                        lc = LineCollection(transition_segments, cmap='viridis', norm=shared_norm)
+                        lc.set_array(transition_colors)
+                        lc.set_linewidth(2)
+                        ax.add_collection(lc)
+
+                        # Optional: scatter the transition points
+                        ax.scatter(transitions[:, 0], transitions[:, 1], c=plt.cm.viridis(shared_norm(np.arange(T))), s=10)
+
+                        # --------------------
+                        # Plot subgoals with same colormap
+                        # --------------------
+                        subgoal_steps = np.arange(T - 1, T - 1 + N)  # continue time index from transitions
+                        subgoal_colors = plt.cm.viridis(shared_norm(subgoal_steps))
+                        ax.plot(subgoal[:, 0], subgoal[:, 1], linestyle='--', color='orange', alpha=0.5)
+                        ax.scatter(subgoal[:, 0], subgoal[:, 1], c=subgoal_colors, marker='x', s=100, label='Subgoals')
+
+                        # Annotate subgoals with time index
+                        for i, (x, y) in enumerate(subgoal):
+                            ax.text(x, y, str(i), fontsize=8, ha='center', va='center', color='black')
+
+                        # --------------------
+                        # Final Goal
+                        # --------------------
+                        fg = np.array(self.policy.fg)
+                        ax.scatter(fg[0], fg[1], marker='*', color='green', s=150, label='Final Goal')
+
+                        # --------------------
+                        # Finishing touches
+                        # --------------------
+                        ax.set_title('Temporally Colored Transitions and Subgoals')
+                        ax.legend()
+                        ax.set_aspect('equal')
+                        ax.grid(True)
+
+                        plt.close()
 
                     break
 
@@ -170,7 +261,7 @@ class HiroTrainer:
             f"eval/return_std": return_std,
         }
 
-        return eval_dict, image_array
+        return eval_dict, {"rendering":image_array, "progression": fig}
 
     def discounted_returns(self, rewards, gamma):
         returns = []
@@ -187,10 +278,20 @@ class HiroTrainer:
         for key, value in logging_dict.items():
             self.writer.add_scalar(key, value, step)
 
-    def write_image(self, image: np.ndarray, step: int, logdir: str, name: str):
-        image_list = [image]
+    def write_image(self, image, step: int, logdir: str, name: str):
         image_path = os.path.join(logdir, name)
-        self.logger.write_images(step=step, images=image_list, logdir=image_path)
+
+        if isinstance(image, list):
+            image_list = image
+            self.logger.write_images(step=step, images=image_list, logdir=image_path)
+        elif isinstance(image, np.ndarray):
+            image_list = [image]
+            self.logger.write_images(step=step, images=image_list, logdir=image_path)
+        elif image is None:
+            return
+        else:
+            # assuming fig
+            wandb.log({f"{image_path}": wandb.Image(image)}, step=int(step))
 
     def write_video(self, image: list, step: int, logdir: str, name: str):
         tensor = np.stack(image, axis=0)

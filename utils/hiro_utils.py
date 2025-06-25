@@ -1,8 +1,6 @@
 import numpy as np
 import torch
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 
 class ReplayBuffer:
     def __init__(
@@ -12,6 +10,7 @@ class ReplayBuffer:
         action_dim: int,
         buffer_size: int,
         batch_size: int,
+        device
     ):
         self.buffer_size = buffer_size
         self.batch_size = batch_size
@@ -71,9 +70,10 @@ class LowReplayBuffer(ReplayBuffer):
         action_dim: int,
         buffer_size: int,
         batch_size: int,
+        device
     ):
         super(LowReplayBuffer, self).__init__(
-            state_dim, goal_dim, action_dim, buffer_size, batch_size
+            state_dim, goal_dim, action_dim, buffer_size, batch_size, device
         )
         self.n_goal = np.zeros((buffer_size,) + goal_dim)
 
@@ -114,6 +114,7 @@ class HighReplayBuffer(ReplayBuffer):
         buffer_size: int,
         batch_size: int,
         freq: int,
+        device
     ):
         if isinstance(state_dim, int):
             state_dim = (state_dim,)
@@ -123,7 +124,7 @@ class HighReplayBuffer(ReplayBuffer):
             subgoal_dim = (subgoal_dim,)
 
         super(HighReplayBuffer, self).__init__(
-            state_dim, goal_dim, action_dim, buffer_size, batch_size
+            state_dim, goal_dim, action_dim, buffer_size, batch_size, device
         )
         self.action = np.zeros((buffer_size,) + subgoal_dim)
         self.state_arr = np.zeros(
@@ -167,8 +168,8 @@ class SubgoalActionSpace(object):
     def __init__(self, dim: tuple):
         self.dim = dim
         self.shape = (1,) + dim
-        self.low = np.zeros((np.prod(dim),))
-        self.high = np.ones((np.prod(dim),))
+        self.low = -0.25*np.ones((np.prod(dim),))
+        self.high = 0.25*np.ones((np.prod(dim),))
 
     def sample(self):
         subgoal = (self.high - self.low) * np.random.sample(

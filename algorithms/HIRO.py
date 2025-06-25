@@ -42,7 +42,7 @@ class HIRO:
             logger=self.logger,
             writer=self.writer,
             epochs=int(self.args.timesteps // self.env.max_steps),
-            eval_num=self.args.eval_episodes,
+            eval_num=1,
             seed=self.args.seed,
         )
         hiro_trainer.train()
@@ -61,7 +61,7 @@ class HIRO:
             critic_lr=self.args.critic_lr,
             is_discrete=self.args.is_discrete,
             # batch_size=self.args.batch_size,
-            batch_size=64,
+            batch_size=256,
             gamma=self.args.gamma,
             device=self.args.device,
         )

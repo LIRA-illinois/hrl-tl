@@ -83,6 +83,7 @@ class HIRO_Learner(nn.Module):
             action_dim=action_dim,
             buffer_size=buffer_size,
             batch_size=batch_size,
+            device=device,
         )
 
         self.replay_buffer_high = HighReplayBuffer(
@@ -93,6 +94,7 @@ class HIRO_Learner(nn.Module):
             buffer_size=buffer_size,
             batch_size=batch_size,
             freq=buffer_freq,
+            device=device,
         )
 
         self.buffer_freq = buffer_freq
@@ -153,6 +155,7 @@ class HIRO_Learner(nn.Module):
             a = a.cpu().numpy().squeeze(0) if a.shape[-1] > 1 else [a.item()]
         else:
             raise ValueError("Unknown action type")
+        
         obs, r, done, _ = env.step(a)
         n_s = obs["observation"]
 
@@ -207,6 +210,7 @@ class HIRO_Learner(nn.Module):
 
             if global_step % self.train_freq == 0:
                 loss = self.high_con.learn(self.low_con, self.replay_buffer_high)
+
                 loss_dict.update(loss)
 
         return loss_dict

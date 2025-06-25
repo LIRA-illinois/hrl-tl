@@ -60,7 +60,7 @@ class FourRooms(MultiGridEnv):
     def __init__(
         self,
         grid_type: int = 0,
-        max_steps: int = 200,
+        max_steps: int = 100,
         highlight_visible_cells: bool | None = False,
         tile_size: int = 10,
         state_representation: str = "positional_dict",
@@ -104,7 +104,7 @@ class FourRooms(MultiGridEnv):
         ]
 
         self.goal_positions = [
-            (9, 9),
+            (3, 9),
             (7, 9),
             (9, 9),
         ]
@@ -181,7 +181,7 @@ class FourRooms(MultiGridEnv):
                 observation_space = spaces.Box(
                     low=np.array([0, 0, 0, 0], dtype=np.float32),
                     high=np.array(
-                        [self.width, self.height, self.width, self.height],
+                        [1, 1, 1, 1],
                         dtype=np.float32,
                     ),
                     dtype=np.float32,
