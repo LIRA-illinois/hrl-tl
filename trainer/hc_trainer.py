@@ -10,8 +10,8 @@ import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
+from hrl_tl.utils.sampler import Sampler
 from log.wandb_logger import WandbLogger
-from utils.sampler import Sampler
 
 
 class HCTrainer:
@@ -28,7 +28,6 @@ class HCTrainer:
         eval_num: int = 10,
         seed: int = 0,
     ) -> None:
-
         # environment to sample and run
         self.env = env
         # the policy that wraps the actor and critic with their correspoding learning module

@@ -2,11 +2,12 @@ import gymnasium as gym
 import numpy as np
 import torch
 import torch.nn as nn
-from log.wandb_logger import WandbLogger
 from torch.utils.tensorboard import SummaryWriter
+
+from hrl_tl.utils.hc_sampler import HCSampler
+from hrl_tl.utils.utils import print_model_summary
+from log.wandb_logger import WandbLogger
 from trainer.hc_trainer import HCTrainer
-from utils.hc_sampler import HCSampler
-from utils.utils import print_model_summary
 
 
 class TL_HRL:

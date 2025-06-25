@@ -4,10 +4,10 @@ import torch
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 
+from hrl_tl.utils.sampler import Sampler
+from hrl_tl.utils.utils import print_model_summary
 from log.wandb_logger import WandbLogger
 from trainer.base_trainer import Trainer
-from utils.sampler import Sampler
-from utils.utils import print_model_summary
 
 
 class PPO:

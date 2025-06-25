@@ -1,10 +1,10 @@
 import numpy as np
 import torch
 import torch.nn as nn
-
 from models.base import Base
 from models.layers.hiro_networks import HL_Policy, LL_policy
-from utils.hiro_utils import HighReplayBuffer, LowReplayBuffer, Subgoal
+
+from hrl_tl.utils.hiro_utils import HighReplayBuffer, LowReplayBuffer, Subgoal
 
 
 def _is_update(episode, freq, ignore=0, rem=0):
@@ -155,7 +155,7 @@ class HIRO_Learner(nn.Module):
             a = a.cpu().numpy().squeeze(0) if a.shape[-1] > 1 else [a.item()]
         else:
             raise ValueError("Unknown action type")
-        
+
         obs, r, done, _ = env.step(a)
         n_s = obs["observation"]
 

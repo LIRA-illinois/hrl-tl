@@ -8,8 +8,8 @@ import pandas as pd
 import torch
 from torch.utils.tensorboard import SummaryWriter
 
+from hrl_tl.utils.get_args import get_args
 from log.wandb_logger import WandbLogger
-from utils.get_args import get_args
 
 
 def concat_csv_columnwise_and_delete(folder_path, output_file="output.csv"):

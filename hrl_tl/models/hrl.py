@@ -6,9 +6,9 @@ import torch.nn as nn
 from models.base import Base
 from models.layers.ppo_networks import PPO_Actor, PPO_Critic
 from torch.optim.lr_scheduler import LambdaLR
-from utils.rl import estimate_advantages
 
 from hrl_tl.models.tl_hrl import TLHRLLearner
+from hrl_tl.utils.rl import estimate_advantages
 
 
 class BaseHRLLearner(Base):

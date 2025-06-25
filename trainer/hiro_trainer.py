@@ -2,20 +2,19 @@ import os
 import time
 from collections import deque
 from copy import deepcopy
-import wandb
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.collections import LineCollection
+
 import gymnasium as gym
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
+import wandb
+from matplotlib.collections import LineCollection
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
+from hrl_tl.utils.sampler import Sampler
 from log.wandb_logger import WandbLogger
-from utils.sampler import Sampler
 
 
 class HiroTrainer:
@@ -66,10 +65,12 @@ class HiroTrainer:
                     eval_dict, supp_dict = self.evaluate()
 
                     self.write_log(eval_dict, step=global_step, eval_log=True)
-                    self.write_image(supp_dict["progression"],
+                    self.write_image(
+                        supp_dict["progression"],
                         step=global_step,
                         logdir=f"images",
-                        name="goal_progression",)
+                        name="goal_progression",
+                    )
                     self.write_video(
                         supp_dict["rendering"],
                         step=global_step,
@@ -109,7 +110,6 @@ class HiroTrainer:
                     loss_dict = self.policy.learn(global_step)
                     loss_dict_list.append(loss_dict)
 
-
                     # Updates
                     s = n_s
                     episode_reward += r
@@ -121,7 +121,7 @@ class HiroTrainer:
                 param_diff = {}
                 for (name1, p1), (name2, p2) in zip(
                     prev_policy.low_con.named_parameters(),
-                    self.policy.low_con.named_parameters()
+                    self.policy.low_con.named_parameters(),
                 ):
                     assert name1 == name2, "Parameter names do not match"
                     diff = (p1.data - p2.data).abs().mean().item()
@@ -137,8 +137,6 @@ class HiroTrainer:
                 self.write_log(
                     self.average_dict_values(loss_dict_list), step=global_step
                 )
-
-                
 
                 torch.cuda.empty_cache()
 
@@ -171,7 +169,6 @@ class HiroTrainer:
                     # record subgoal track
                     subgoal.append(self.policy.sg + state)
                     transitions.append(next_state)
-                    
 
                 state = next_state
                 ep_reward.append(rew)
@@ -197,7 +194,9 @@ class HiroTrainer:
                         # --------------------
                         transitions = np.array(transitions)  # shape: (T, 2)
                         T = len(transitions)
-                        transition_segments = np.stack([transitions[:-1], transitions[1:]], axis=1)  # shape: (T-1, 2, 2)
+                        transition_segments = np.stack(
+                            [transitions[:-1], transitions[1:]], axis=1
+                        )  # shape: (T-1, 2, 2)
 
                         # --------------------
                         # Subgoal setup
@@ -214,39 +213,78 @@ class HiroTrainer:
                         # --------------------
                         # Apply color to transitions
                         # --------------------
-                        transition_colors = np.linspace(0, T - 2, T - 1)  # steps 0 to T-2
-                        lc = LineCollection(transition_segments, cmap='viridis', norm=shared_norm)
+                        transition_colors = np.linspace(
+                            0, T - 2, T - 1
+                        )  # steps 0 to T-2
+                        lc = LineCollection(
+                            transition_segments, cmap="viridis", norm=shared_norm
+                        )
                         lc.set_array(transition_colors)
                         lc.set_linewidth(2)
                         ax.add_collection(lc)
 
                         # Optional: scatter the transition points
-                        ax.scatter(transitions[:, 0], transitions[:, 1], c=plt.cm.viridis(shared_norm(np.arange(T))), s=10)
+                        ax.scatter(
+                            transitions[:, 0],
+                            transitions[:, 1],
+                            c=plt.cm.viridis(shared_norm(np.arange(T))),
+                            s=10,
+                        )
 
                         # --------------------
                         # Plot subgoals with same colormap
                         # --------------------
-                        subgoal_steps = np.arange(T - 1, T - 1 + N)  # continue time index from transitions
+                        subgoal_steps = np.arange(
+                            T - 1, T - 1 + N
+                        )  # continue time index from transitions
                         subgoal_colors = plt.cm.viridis(shared_norm(subgoal_steps))
-                        ax.plot(subgoal[:, 0], subgoal[:, 1], linestyle='--', color='orange', alpha=0.5)
-                        ax.scatter(subgoal[:, 0], subgoal[:, 1], c=subgoal_colors, marker='x', s=100, label='Subgoals')
+                        ax.plot(
+                            subgoal[:, 0],
+                            subgoal[:, 1],
+                            linestyle="--",
+                            color="orange",
+                            alpha=0.5,
+                        )
+                        ax.scatter(
+                            subgoal[:, 0],
+                            subgoal[:, 1],
+                            c=subgoal_colors,
+                            marker="x",
+                            s=100,
+                            label="Subgoals",
+                        )
 
                         # Annotate subgoals with time index
                         for i, (x, y) in enumerate(subgoal):
-                            ax.text(x, y, str(i), fontsize=8, ha='center', va='center', color='black')
+                            ax.text(
+                                x,
+                                y,
+                                str(i),
+                                fontsize=8,
+                                ha="center",
+                                va="center",
+                                color="black",
+                            )
 
                         # --------------------
                         # Final Goal
                         # --------------------
                         fg = np.array(self.policy.fg)
-                        ax.scatter(fg[0], fg[1], marker='*', color='green', s=150, label='Final Goal')
+                        ax.scatter(
+                            fg[0],
+                            fg[1],
+                            marker="*",
+                            color="green",
+                            s=150,
+                            label="Final Goal",
+                        )
 
                         # --------------------
                         # Finishing touches
                         # --------------------
-                        ax.set_title('Temporally Colored Transitions and Subgoals')
+                        ax.set_title("Temporally Colored Transitions and Subgoals")
                         ax.legend()
-                        ax.set_aspect('equal')
+                        ax.set_aspect("equal")
                         ax.grid(True)
 
                         plt.close()
@@ -261,7 +299,7 @@ class HiroTrainer:
             f"eval/return_std": return_std,
         }
 
-        return eval_dict, {"rendering":image_array, "progression": fig}
+        return eval_dict, {"rendering": image_array, "progression": fig}
 
     def discounted_returns(self, rewards, gamma):
         returns = []
