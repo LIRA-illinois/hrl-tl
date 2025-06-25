@@ -2,16 +2,12 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.distributions import Categorical, MultivariateNormal
+from torch.distributions import Categorical, MultivariateNormal, Normal
 
 from models.layers.building_blocks import MLP, Conv, DeConv
 
 
 class PPO_Actor(nn.Module):
-    """
-    Psi Advantage Function: Psi(s,a) - (1/|A|)SUM_a' Psi(s, a')
-    """
-
     def __init__(
         self,
         input_dim: int,
@@ -19,10 +15,12 @@ class PPO_Actor(nn.Module):
         action_dim: int,
         is_discrete: bool,
         activation: nn.Module = nn.Tanh(),
+        device=torch.device("cpu"),
     ):
         super(PPO_Actor, self).__init__()
 
         self.state_dim = np.prod(input_dim)
+        self.hidden_dim = hidden_dim
         self.action_dim = np.prod(action_dim)
 
         self.is_discrete = is_discrete
@@ -34,6 +32,11 @@ class PPO_Actor(nn.Module):
             activation=activation,
             initialization="actor",
         )
+        if not self.is_discrete:
+            self.logstd = nn.Parameter(torch.zeros(1, self.action_dim))
+
+        self.device = device
+        self.to(self.device)
 
     def forward(
         self,
@@ -46,6 +49,7 @@ class PPO_Actor(nn.Module):
         :param deterministic: If True, use deterministic action selection.
         :return: Action tensor and additional metadata.
         """
+        # state = self.preprocess_state(state)
         if self.is_discrete:
             a, metaData = self.discrete_forward(state, deterministic)
         else:
@@ -62,26 +66,15 @@ class PPO_Actor(nn.Module):
 
         ### Shape the output as desired
         mu = logits
-        logstd = torch.zeros_like(mu)
-        std = torch.exp(logstd)
+        logstd = torch.clip(self.logstd, -5, 2)  # Clip logstd to avoid numerical issues
+        std = torch.exp(logstd.expand_as(mu))
+        dist = Normal(loc=mu, scale=std)
 
-        if deterministic:
-            a = mu
-            dist = None
-            logprobs = torch.zeros_like(mu[:, 0:1])
-            probs = torch.ones_like(logprobs)  # log(1) = 0
-            entropy = torch.zeros_like(logprobs)
+        a = dist.rsample()
 
-        else:
-            covariance_matrix = torch.diag_embed(std**2)  # Variance is std^2
-            dist = MultivariateNormal(loc=mu, covariance_matrix=covariance_matrix)
-
-            a = dist.rsample()
-
-            logprobs = dist.log_prob(a).unsqueeze(-1)
-            probs = torch.exp(logprobs)
-
-            entropy = dist.entropy()
+        logprobs = dist.log_prob(a).unsqueeze(-1).sum(1)
+        probs = torch.exp(logprobs)
+        entropy = dist.entropy().sum(1)
 
         return a, {
             "dist": dist,
@@ -129,14 +122,17 @@ class PPO_Actor(nn.Module):
         if self.is_discrete:
             logprobs = dist.log_prob(torch.argmax(actions, dim=-1)).unsqueeze(-1)
         else:
-            logprobs = dist.log_prob(actions).unsqueeze(-1)
+            logprobs = dist.log_prob(actions).unsqueeze(-1).sum(1)
         return logprobs
 
     def entropy(self, dist: torch.distributions):
         """
         For code consistency
         """
-        return dist.entropy().unsqueeze(-1)
+        if self.is_discrete:
+            return dist.entropy().unsqueeze(-1)
+        else:
+            return dist.entropy().unsqueeze(-1).sum(1)
 
 
 class PPO_Critic(nn.Module):
@@ -149,12 +145,14 @@ class PPO_Critic(nn.Module):
     ):
         super(PPO_Critic, self).__init__()
 
-        # |A| duplicate networks
-        self.act = activation
-        self._dtype = torch.float32
+        self.state_dim = np.prod(input_dim)
 
         self.model = MLP(
-            input_dim, hidden_dim, 1, activation=self.act, initialization="critic"
+            self.state_dim,
+            hidden_dim,
+            1,
+            activation=activation,
+            initialization="critic",
         )
 
     def forward(self, x: torch.Tensor):
