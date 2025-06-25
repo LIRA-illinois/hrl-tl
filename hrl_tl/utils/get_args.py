@@ -130,6 +130,12 @@ def get_args(verbose=True):
         help="Naive ppo number of minibatch size for training",
     )
     parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=None,
+        help="Naive ppo number of minibatch size for training",
+    )
+    parser.add_argument(
         "--entropy-scaler",
         type=float,
         default=3e-3,
@@ -153,13 +159,13 @@ def get_args(verbose=True):
     ### Dimensional params
 
     parser.add_argument(
-        "--actor-dim",
+        "--actor-fc-dim",
         type=list,
         default=None,
         help="This is a dimension of FCL that decodes the output of CNN or VAE",
     )
     parser.add_argument(
-        "--critic-dim",
+        "--critic-fc-dim",
         type=list,
         default=None,
         help="This is a dimension of FCL that decodes the output of CNN or VAE",
