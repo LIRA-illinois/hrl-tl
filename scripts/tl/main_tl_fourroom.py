@@ -6,11 +6,9 @@ import gym_multigrid
 import gymnasium as gym
 import imageio
 import numpy as np
-from gym_tl_tools import Predicate, TLObservationReward, replace_special_characters
+from gym_tl_tools import Predicate
 from numpy.typing import NDArray
 from stable_baselines3 import PPO
-from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3.common.vec_env.subproc_vec_env import SubprocVecEnv
 
 from hrl_tl.envs.tl_fourroom import (
     PolicyArgsDict,
@@ -71,6 +69,10 @@ if __name__ == "__main__":
         "render_mode": "rgb_array",
         "spawn_type": 0,
         "random_init_pos": False,
+        "reward_config": {
+            "step_penalty": 0.01,
+            "sum_reward": True,
+        },
         "layout_config": {
             "field_map": [
                 "#############",
@@ -147,6 +149,7 @@ if __name__ == "__main__":
             "policy_kwargs": {"net_arch": [128, 128]},
         },
         "model_save_dir": "out/maze/ltl_ll/ll_policies",
+        "model_prefix": "maze_tl_ppo_stay_",
         "model_name": "final_model",
         "training_config": {
             "total_timesteps": 50_000,

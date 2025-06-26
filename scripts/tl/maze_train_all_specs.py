@@ -130,7 +130,7 @@ if __name__ == "__main__":
     }
 
     for tl_spec in tqdm.tqdm(tl_specs, desc="Processing specs"):
-        model_name: str = "maze_tl_ppo_" + replace_special_characters(tl_spec)
+        model_name: str = "maze_tl_ppo_stay_" + replace_special_characters(tl_spec)
         wrapper_kwargs = {
             "tl_spec": tl_spec,
             "atomic_predicates": predicates,

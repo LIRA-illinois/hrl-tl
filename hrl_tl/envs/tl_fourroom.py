@@ -73,6 +73,7 @@ class PolicyArgsDict(TypedDict):
     algorithm: type[BaseAlgorithm]
     algo_config: dict[str, Any]
     model_save_dir: str
+    model_prefix: str
     model_name: str
     training_config: dict[str, Any]
     device: str
@@ -114,6 +115,7 @@ class PolicyArgs(BaseModel):
         "policy_kwargs": {"net_arch": [128, 128]},
     }
     model_save_dir: str = "out/maze/ltl_ll/ll_policies"
+    model_prefix: str = "maze_tl_ppo_stay_"
     model_name: str = "final_model"
     training_config: TrainingConfig = TrainingConfig()
     device: str = "cuda:0"
@@ -148,6 +150,7 @@ def maze_low_level_policy(
             "policy_kwargs": {"net_arch": [128, 128]},
         },
         "model_save_dir": "out/maze/ltl_ll/ll_policies",
+        "model_prefix": "maze_tl_ppo_stay_",
         "model_name": "final_model",
         "training_config": {
             "total_timesteps": 50_000,
@@ -165,7 +168,9 @@ def maze_low_level_policy(
     policy_args.algo_config["n_steps"] = int(
         policy_args.algo_config["batch_size"] / policy_args.training_config.n_envs
     )
-    tl_spec_name: str = replace_special_characters(low_level_env.automaton.tl_spec)
+    tl_spec_name: str = policy_args.model_prefix + replace_special_characters(
+        low_level_env.automaton.tl_spec
+    )
     model_path = os.path.join(
         policy_args.model_save_dir, tl_spec_name, policy_args.model_name + ".zip"
     )
