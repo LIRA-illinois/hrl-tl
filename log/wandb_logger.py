@@ -51,6 +51,7 @@ class WandbLogger(BaseLogger):
                 id=str(uuid.uuid4()),
                 resume="allow",
                 config=config,  # type: ignore
+                entity="miki-yuasa-university-of-illinois-urbana-champaign",
             )
             if not wandb.run
             else wandb.run

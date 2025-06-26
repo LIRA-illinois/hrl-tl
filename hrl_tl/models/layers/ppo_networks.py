@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Categorical, MultivariateNormal, Normal
 
-from models.layers.building_blocks import MLP, Conv, DeConv
+from hrl_tl.models.layers.building_blocks import MLP, Conv, DeConv
 
 
 class PPO_Actor(nn.Module):

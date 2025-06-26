@@ -71,7 +71,7 @@ def get_args(verbose=True):
     parser.add_argument(
         "--algo-name",
         type=str,
-        default="PPO",
+        default="HIRO",
         help="In caps",
     )
 

@@ -57,8 +57,8 @@ class TL_HRL:
         tlhrl_trainer.train()
 
     def define_policy(self):
-        from models.layers.ppo_networks import PPO_Actor, PPO_Critic
-        from models.tl_hrl import TLHRLLearner
+        from hrl_tl.models.layers.ppo_networks import PPO_Actor, PPO_Critic
+        from hrl_tl.models.tl_hrl import TLHRLLearner
 
         # high-level-actor
         # note that it outputs the state (goal-state)

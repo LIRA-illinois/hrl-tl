@@ -1,12 +1,14 @@
+from copy import deepcopy
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Categorical, MultivariateNormal, Normal
-from copy import deepcopy
-from models.base import Base
-from models.layers.building_blocks import MLP, Conv, DeConv
-from models.layers.ppo_networks import PPO_Actor, PPO_Critic
+
+from hrl_tl.models.base import Base
+from hrl_tl.models.layers.building_blocks import MLP, Conv, DeConv
+from hrl_tl.models.layers.ppo_networks import PPO_Actor, PPO_Critic
 
 
 class TD3_Actor(nn.Module):
@@ -53,7 +55,7 @@ class TD3_Actor(nn.Module):
         if not deterministic:
             # Add small exploration noise for action selection (not training!)
             mean = torch.zeros(action.size()).to(self.device)
-            var = 0.1*torch.ones(action.size()).to(self.device)
+            var = 0.1 * torch.ones(action.size()).to(self.device)
             noise = torch.normal(mean, var)
             action += noise
 
@@ -66,7 +68,8 @@ class TD3_Actor(nn.Module):
             "logprobs": self._dummy,
             "entropy": self._dummy,
         }
-    
+
+
 class DQN_Actor(nn.Module):
     def __init__(
         self,
@@ -106,7 +109,9 @@ class DQN_Actor(nn.Module):
             a_idx = torch.argmax(q_values, dim=-1)
         else:
             if np.random.rand() < epsilon:
-                a_idx = torch.randint(0, self.action_dim, (state.size(0),), device=self.device)
+                a_idx = torch.randint(
+                    0, self.action_dim, (state.size(0),), device=self.device
+                )
             else:
                 a_idx = torch.argmax(q_values, dim=-1)
 
@@ -118,6 +123,7 @@ class DQN_Actor(nn.Module):
             "logprobs": self._dummy,
             "entropy": self._dummy,
         }
+
 
 class HIRO_Policy(Base):
     def __init__(
@@ -157,9 +163,11 @@ class HIRO_Policy(Base):
                 activation=activation,
                 device=device,
             )
-            
+
             self.actor_target = deepcopy(self.actor)
-            self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=actor_lr)
+            self.actor_optimizer = torch.optim.Adam(
+                self.actor.parameters(), lr=actor_lr
+            )
 
         self.critic_input_dim = (
             np.prod(state_dim) + np.prod(goal_dim) + np.prod(action_dim)
@@ -226,9 +234,15 @@ class HIRO_Policy(Base):
             repeated_inputs = actor_input.repeat_interleave(self.action_dim, dim=0)
 
             # Create all possible one-hot actions
-            all_actions = F.one_hot(
-                torch.arange(self.action_dim, device=self.device).repeat(batch_size, 1)
-            ).view(-1, self.action_dim).float()  # [B * A, action_dim]
+            all_actions = (
+                F.one_hot(
+                    torch.arange(self.action_dim, device=self.device).repeat(
+                        batch_size, 1
+                    )
+                )
+                .view(-1, self.action_dim)
+                .float()
+            )  # [B * A, action_dim]
 
             # Compute Q(s, g, a) for all actions
             q_values = self.critic1(torch.cat([repeated_inputs, all_actions], dim=-1))
@@ -239,7 +253,9 @@ class HIRO_Policy(Base):
 
             if not deterministic:
                 # ε-greedy: sample random actions with ε probability
-                rand_action_idx = torch.randint(0, self.action_dim, (batch_size,), device=self.device)
+                rand_action_idx = torch.randint(
+                    0, self.action_dim, (batch_size,), device=self.device
+                )
                 probs = torch.rand(batch_size, device=self.device)
                 final_action_idx = torch.where(
                     probs < 0.2,  # ε chance
@@ -287,17 +303,35 @@ class HIRO_Policy(Base):
             # Compute Q values for all actions at next state
             next_inputs = torch.cat([next_states, next_goals], dim=-1)
             q1_next = self.critic1_target(
-                torch.cat([
-                    next_inputs.repeat_interleave(self.action_dim, dim=0),
-                    F.one_hot(torch.arange(self.action_dim, device=self.device).repeat(states.size(0), 1)).view(-1, self.action_dim).float()
-                ], dim=-1)
+                torch.cat(
+                    [
+                        next_inputs.repeat_interleave(self.action_dim, dim=0),
+                        F.one_hot(
+                            torch.arange(self.action_dim, device=self.device).repeat(
+                                states.size(0), 1
+                            )
+                        )
+                        .view(-1, self.action_dim)
+                        .float(),
+                    ],
+                    dim=-1,
+                )
             ).view(states.size(0), self.action_dim)
 
             q2_next = self.critic2_target(
-                torch.cat([
-                    next_inputs.repeat_interleave(self.action_dim, dim=0),
-                    F.one_hot(torch.arange(self.action_dim, device=self.device).repeat(states.size(0), 1)).view(-1, self.action_dim).float()
-                ], dim=-1)
+                torch.cat(
+                    [
+                        next_inputs.repeat_interleave(self.action_dim, dim=0),
+                        F.one_hot(
+                            torch.arange(self.action_dim, device=self.device).repeat(
+                                states.size(0), 1
+                            )
+                        )
+                        .view(-1, self.action_dim)
+                        .float(),
+                    ],
+                    dim=-1,
+                )
             ).view(states.size(0), self.action_dim)
 
             q_next = torch.min(q1_next, q2_next)
@@ -330,7 +364,7 @@ class HIRO_Policy(Base):
             ["critic1", "critic2", "critic1_target", "critic2_target"],
             dir=f"{name}",
             device=self.device,
-        )        
+        )
         self.critic1_optimizer.step()
         self.critic2_optimizer.step()
 
@@ -344,7 +378,6 @@ class HIRO_Policy(Base):
 
         self.total_it += 1
         return loss_dict
-
 
     def learn_for_continuous(
         self,
@@ -457,7 +490,6 @@ class HIRO_Policy(Base):
         self.total_it += 1
 
         return loss_dict
-    
 
 
 class HL_Policy(HIRO_Policy):

@@ -41,14 +41,14 @@ class HIRO:
             policy=self.policy,
             logger=self.logger,
             writer=self.writer,
-            epochs=int(self.args.timesteps // self.env.max_steps),
+            epochs=int(self.args.timesteps // self.env._max_episode_steps),
             eval_num=1,
             seed=self.args.seed,
         )
         hiro_trainer.train()
 
     def define_policy(self):
-        from models.hiro import HIRO_Learner
+        from hrl_tl.models.hiro import HIRO_Learner
 
         self.policy = HIRO_Learner(
             state_dim=self.args.state_dim,

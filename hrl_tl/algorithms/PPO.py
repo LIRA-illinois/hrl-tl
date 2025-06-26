@@ -52,8 +52,8 @@ class PPO:
         ppo_trainer.train()
 
     def define_ppo_policy(self):
-        from models.layers.ppo_networks import PPO_Actor, PPO_Critic
-        from models.ppo import PPO_Learner
+        from hrl_tl.models.layers.ppo_networks import PPO_Actor, PPO_Critic
+        from hrl_tl.models.ppo import PPO_Learner
 
         actor = PPO_Actor(
             input_dim=np.prod(self.args.state_dim),

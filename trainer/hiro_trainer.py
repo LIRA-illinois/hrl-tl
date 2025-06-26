@@ -8,11 +8,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
-import wandb
 from matplotlib.collections import LineCollection
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
+import wandb
 from hrl_tl.utils.sampler import Sampler
 from log.wandb_logger import WandbLogger
 
@@ -156,7 +156,7 @@ class HiroTrainer:
             self.policy.set_final_goal(fg)
             subgoal = []
             transitions = []
-            for t in range(self.env.max_steps):
+            for t in range(self.env._max_episode_steps):
                 with torch.no_grad():
                     a, rew, next_state, done = self.policy.step(state, self.env, step)
                     # if t == 0:

@@ -132,7 +132,7 @@ class Trainer:
             # Env initialization
             state, infos = self.env.reset(seed=self.seed)
 
-            for t in range(self.env.max_steps):
+            for t in range(self.env._max_episode_steps):
                 with torch.no_grad():
                     a, _ = self.policy(state, deterministic=True)
                     a = a.cpu().numpy().squeeze(0) if a.shape[-1] > 1 else [a.item()]

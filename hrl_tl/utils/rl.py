@@ -1,3 +1,5 @@
+import gym_multigrid
+import gymnasium as gym
 import numpy as np
 import torch
 
@@ -9,24 +11,72 @@ def call_env(args):
     env = None
     env_name, version = args.env_name.split("-")
     version = int(version[-1]) if version[-1].isdigit() else version[-1]
+
     if env_name == "fourrooms":
-        from gym.envs.fourrooms import FourRooms
+        env_kwargs = {
+            "max_episode_steps": 100,
+            "spawn_type": 0,
+            "random_init_pos": False,
+            "layout_config": {
+                "field_map": [
+                    "#############",
+                    "#     #     #",
+                    "#     #     #",
+                    "#           #",
+                    "#     #     #",
+                    "#     #     #",
+                    "## ####     #",
+                    "#     ### ###",
+                    "#     #     #",
+                    "#     #     #",
+                    "#           #",
+                    "#     #     #",
+                    "#############",
+                ],
+                "spawn_configs": [
+                    {
+                        "agent": (3, 9),
+                        "goal": {"pos": (9, 4), "reward": 1.0},
+                        "lavas": [
+                            {"pos": (8, 4), "reward": 0},
+                            {"pos": (9, 2), "reward": 0},
+                            {"pos": (11, 1), "reward": 0},
+                            {"pos": (5, 3), "reward": 0},
+                            {"pos": (3, 5), "reward": 0},
+                            {"pos": (3, 2), "reward": 0},
+                            {"pos": (5, 9), "reward": -1},
+                            {"pos": (3, 8), "reward": -1},
+                            {"pos": (2, 11), "reward": -1},
+                            {"pos": (10, 8), "reward": -1},
+                            {"pos": (8, 9), "reward": -1},
+                            {"pos": (7, 11), "reward": -1},
+                        ],
+                        "holes": [
+                            {"pos": (7, 3), "reward": 0},
+                            {"pos": (10, 5), "reward": 0},
+                            {"pos": (8, 6), "reward": 0},
+                            {"pos": (4, 4), "reward": -1},
+                            {"pos": (2, 3), "reward": -1},
+                            {"pos": (1, 1), "reward": -1},
+                            {"pos": (2, 7), "reward": 0},
+                            {"pos": (1, 9), "reward": 0},
+                            {"pos": (4, 10), "reward": 0},
+                            {"pos": (7, 8), "reward": -1},
+                            {"pos": (9, 10), "reward": -1},
+                            {"pos": (11, 11), "reward": -1},
+                        ],
+                    },
+                ],
+            },
+        }
 
-        env = FourRooms(grid_type=version)
-    elif env_name == "maze":
-        from gym.envs.maze import Maze
-
-        env = Maze(grid_type=version)
-    elif env_name == "rooms":
-        from gym.envs.rooms import Rooms
-
-        env = Rooms(grid_type=version)
+        env = gym.make("multigrid-rooms-v0", **env_kwargs)
     else:
         raise ValueError(f"Environment {env_name} is not supported.")
 
     args.state_dim = env.observation_space.shape
     args.action_dim = env.action_space.n
-    args.episode_len = env.max_steps
+    args.episode_len = env._max_episode_steps
     args.is_discrete = env.action_space.__class__.__name__ == "Discrete"
 
     return env

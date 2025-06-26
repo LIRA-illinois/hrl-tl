@@ -1,9 +1,9 @@
 import numpy as np
 import torch
 import torch.nn as nn
-from models.base import Base
-from models.layers.hiro_networks import HL_Policy, LL_policy
 
+from hrl_tl.models.base import Base
+from hrl_tl.models.layers.hiro_networks import HL_Policy, LL_policy
 from hrl_tl.utils.hiro_utils import HighReplayBuffer, LowReplayBuffer, Subgoal
 
 

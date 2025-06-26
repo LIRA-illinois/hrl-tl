@@ -2,10 +2,10 @@ import time
 
 import numpy as np
 import torch
-from models.base import Base
-from models.layers.ppo_networks import PPO_Actor, PPO_Critic
 from torch.optim.lr_scheduler import LambdaLR
 
+from hrl_tl.models.base import Base
+from hrl_tl.models.layers.ppo_networks import PPO_Actor, PPO_Critic
 from hrl_tl.utils.rl import estimate_advantages
 
 
