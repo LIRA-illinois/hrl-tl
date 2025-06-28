@@ -9,6 +9,8 @@ import numpy as np
 from gym_tl_tools import Predicate
 from numpy.typing import NDArray
 from stable_baselines3 import PPO
+from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.vec_env.subproc_vec_env import SubprocVecEnv
 
 from hrl_tl.envs.tl_fourroom import (
     PolicyArgsDict,
@@ -157,7 +159,7 @@ if __name__ == "__main__":
         },
         "device": "cuda:0",
     }
-    wrapper_kwargs: TLWrapperArgsDict = {
+    tl_wrapper_kwargs: TLWrapperArgsDict = {
         "atomic_predicates": predicates,
         "var_value_info_generator": var_value_info_generator,
         "reward_config": {
@@ -169,22 +171,30 @@ if __name__ == "__main__":
         "early_termination": True,
     }
 
+    high_level_wrapper_kwargs: dict[str, Any] = {
+        "low_level_policy": maze_low_level_policy,
+        "low_level_policy_args": low_level_policy_args,
+        "max_low_level_policy_steps": max_low_level_policy_steps,
+        "num_clauses": num_clauses,
+        "all_formulae_file_path": all_formulae_file_path,
+        "stay_action": np.int64(0),
+        "tl_wrapper_args": tl_wrapper_kwargs,
+    }
+
     model_save_path: str = os.path.join(model_save_dir, model_name)
     animation_save_dir: str = os.path.join(model_save_path)
 
-    env = gym.make("multigrid-rooms-v0", **env_kwargs)
-    high_level_env = TLHighLevelWrapper[NDArray[np.int64], np.int64, PolicyArgsDict](
-        env,
-        low_level_policy=maze_low_level_policy,
-        low_level_policy_args=low_level_policy_args,
-        max_low_level_policy_steps=max_low_level_policy_steps,
-        num_clauses=num_clauses,
-        all_formulae_file_path=all_formulae_file_path,
-        stay_action=np.int64(0),
-        tl_wrapper_args=wrapper_kwargs,
+    high_level_env = make_vec_env(
+        "multigrid-rooms-v0",
+        n_envs=n_envs,
+        env_kwargs=env_kwargs,
+        vec_env_cls=SubprocVecEnv,
+        vec_env_kwargs={"start_method": "spawn"},
+        wrapper_class=TLHighLevelWrapper,
+        wrapper_kwargs=high_level_wrapper_kwargs,
     )
 
-    demo_env = copy.deepcopy(env)
+    demo_env = gym.make("multigrid-rooms-v0", **env_kwargs)
 
     if not os.path.exists(model_save_path) or retrain_model:
         os.makedirs(model_save_dir, exist_ok=True)
