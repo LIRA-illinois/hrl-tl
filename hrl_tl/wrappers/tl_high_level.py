@@ -70,6 +70,7 @@ class TLHighLevelWrapper(
         all_formulae_file_path: str = "out/maze/all_formulae_2_cla_2_max_pred.json",
         stay_action: ActType = np.int64(0),
         tl_wrapper_args: TLWrapperArgsDict[ObsType, ActType] = {},
+        verbose: bool = False,
     ) -> None:
         RecordConstructorArgs.__init__(
             self,
@@ -80,12 +81,14 @@ class TLHighLevelWrapper(
             all_formulae_file_path=all_formulae_file_path,
             stay_action=stay_action,
             tl_wrapper_args=tl_wrapper_args,
+            verbose=verbose,
         )
         Wrapper.__init__(self, env)
 
         self.num_clauses: int = num_clauses
         self.stay_action: ActType = stay_action
         self.max_low_level_policy_steps: int = max_low_level_policy_steps
+        self.verbose: bool = verbose
 
         with open(all_formulae_file_path, "r") as f:
             all_formulae = json.load(f)
@@ -128,6 +131,13 @@ class TLHighLevelWrapper(
         and uses the low-level policy to execute it in the low-level environment.
         """
 
+        if self.verbose:
+            print(
+                f"High-level action: {action}, "
+                f"Low-level policy step: {self.low_level_policy_step}, "
+                f"Current TL spec: {self.current_tl_spec}"
+            )
+
         if (
             self.current_tl_spec is None
             or self.low_level_policy_step >= self.max_low_level_policy_steps
@@ -147,6 +157,12 @@ class TLHighLevelWrapper(
                 **self.tl_wrapper_args.model_dump(),
             )
             self.current_tl_env.automaton.reset()
+
+            if self.verbose:
+                print(
+                    f"- New TL spec: {self.current_tl_spec}, "
+                    f"-- Low-level policy step reset to 0"
+                )
         else:
             pass
 
@@ -166,11 +182,24 @@ class TLHighLevelWrapper(
             if ll_info["is_aut_terminated"]:
                 self.current_tl_spec = None
                 self.current_tl_env = None
+
+            if self.verbose:
+                print(
+                    f"- Low-level action: {low_level_action}, "
+                    f"-- Low-level policy step: {self.low_level_policy_step}, "
+                    f"-- Is automaton terminated: {ll_info['is_aut_terminated']}"
+                )
         else:
             # If the specification is not in the list, we return the stay action
             self.current_tl_spec = None
             self.current_tl_env = None
             low_level_action = self.stay_action
+
+            if self.verbose:
+                print(
+                    f"- Current TL spec '{self.current_tl_spec}' not in specs, "
+                    f"-- using stay action: {low_level_action}"
+                )
 
         obs, reward, terminated, truncated, info = self.env.step(low_level_action)
         self.last_obs = obs
