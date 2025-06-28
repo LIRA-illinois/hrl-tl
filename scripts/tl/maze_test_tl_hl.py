@@ -184,18 +184,6 @@ if __name__ == "__main__":
     model_save_path: str = os.path.join(model_save_dir, model_name)
     animation_save_dir: str = os.path.join(model_save_path)
 
-    env = gym.make("multigrid-rooms-v0", **env_kwargs)
-    demo_env = TLHighLevelWrapper[NDArray[np.int64], np.int64, PolicyArgsDict](
-        env,
-        low_level_policy=maze_low_level_policy,
-        low_level_policy_args=low_level_policy_args,
-        max_low_level_policy_steps=max_low_level_policy_steps,
-        num_clauses=num_clauses,
-        all_formulae_file_path=all_formulae_file_path,
-        stay_action=np.int64(0),
-        tl_wrapper_args=tl_wrapper_kwargs,
-    )
-
     high_level_env = make_vec_env(
         "multigrid-rooms-v0",
         n_envs=n_envs,
@@ -206,25 +194,26 @@ if __name__ == "__main__":
         wrapper_kwargs=high_level_wrapper_kwargs,
     )
 
-    if not os.path.exists(model_save_path) or retrain_model:
-        os.makedirs(model_save_dir, exist_ok=True)
-        model = PPO(
-            **rl_config,
-            env=high_level_env,
-            verbose=1,
-            tensorboard_log=os.path.join(model_save_dir, "tb"),
-            device="cuda:{}".format(gpu_id),
-        )
-        model.learn(total_timesteps=total_timesteps)
-        high_level_env.close()
-        # Save the model
-        model.save(os.path.join(model_save_path, "final_model"))
-    else:
-        print(f"Model {model_name} already exists, loading...")
-        model = PPO.load(
-            os.path.join(model_save_path, "final_model"), env=high_level_env
-        )
-    # Save the animation
+    env = gym.make("multigrid-rooms-v0", **env_kwargs)
+    demo_env = TLHighLevelWrapper[NDArray[np.int64], np.int64, PolicyArgsDict](
+        env,
+        low_level_policy=maze_low_level_policy,
+        low_level_policy_args=low_level_policy_args,
+        max_low_level_policy_steps=max_low_level_policy_steps,
+        num_clauses=num_clauses,
+        all_formulae_file_path=all_formulae_file_path,
+        stay_action=np.int64(0),
+        tl_wrapper_args=tl_wrapper_kwargs,
+        verbose=True,  # Set verbose to True for debugging
+    )
+
+    model = PPO(
+        **rl_config,
+        env=demo_env,
+        verbose=1,
+        tensorboard_log=os.path.join(model_save_dir, "tb"),
+        device="cuda:{}".format(gpu_id),
+    )
 
     # Video generation using imageio
     obs, _ = demo_env.reset()
