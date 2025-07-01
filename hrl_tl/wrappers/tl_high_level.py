@@ -12,7 +12,7 @@ from gymnasium.utils import RecordConstructorArgs
 from numpy.typing import NDArray
 from pydantic import BaseModel, ConfigDict
 
-from hrl_tl.wrappers.utils import sort_tl_weights, weights2ltl
+from hrl_tl.wrappers.utils.spec_rep import SpecRep, SpecRepArgsDict
 
 LowLevelObsType = TypeVar("LowLevelObsType", covariant=True)
 LowLevelActType = TypeVar("LowLevelActType", covariant=True)
@@ -60,13 +60,14 @@ class TLHighLevelWrapper(
     def __init__(
         self,
         env: Env[ObsType, ActType],
+        spec_rep_class: type[SpecRep],
+        spec_rep_args: SpecRepArgsDict,
         low_level_policy: Callable[
             [ObsType, TLObservationReward[ObsType, ActType], PolicyArgsType],
             ActType,
         ],
         low_level_policy_args: PolicyArgsType = {},
         max_low_level_policy_steps: int = 10,
-        num_clauses: int = 2,
         all_formulae_file_path: str = "out/maze/all_formulae_2_cla_2_max_pred.json",
         stay_action: ActType = np.int64(0),
         tl_wrapper_args: TLWrapperArgsDict[ObsType, ActType] = {},
@@ -74,10 +75,11 @@ class TLHighLevelWrapper(
     ) -> None:
         RecordConstructorArgs.__init__(
             self,
+            spec_rep=spec_rep_class,
+            spec_rep_args=spec_rep_args,
             low_level_policy=low_level_policy,
             low_level_policy_args=low_level_policy_args,
             max_low_level_policy_steps=max_low_level_policy_steps,
-            num_clauses=num_clauses,
             all_formulae_file_path=all_formulae_file_path,
             stay_action=stay_action,
             tl_wrapper_args=tl_wrapper_args,
@@ -85,7 +87,7 @@ class TLHighLevelWrapper(
         )
         Wrapper.__init__(self, env)
 
-        self.num_clauses: int = num_clauses
+        self.spec_rep: SpecRep = spec_rep_class(**spec_rep_args)
         self.stay_action: ActType = stay_action
         self.max_low_level_policy_steps: int = max_low_level_policy_steps
         self.verbose: bool = verbose
@@ -145,12 +147,7 @@ class TLHighLevelWrapper(
             # Convert the high-level action to a temporal logic specification
             self.low_level_policy_step = 0
 
-            f_weights, g_weights = sort_tl_weights(
-                action, len(self.predicate_names), self.num_clauses
-            )
-            self.current_tl_spec = weights2ltl(
-                f_weights, g_weights, self.predicate_names
-            )
+            self.current_tl_spec = self.spec_rep.weights2ltl(action)
             self.current_tl_env = TLObservationReward[ObsType, ActType](
                 copy.deepcopy(self.env),
                 tl_spec=self.current_tl_spec,

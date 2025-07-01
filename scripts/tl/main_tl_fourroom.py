@@ -18,6 +18,7 @@ from hrl_tl.envs.tl_fourroom import (
     var_value_info_generator,
 )
 from hrl_tl.wrappers.tl_high_level import TLHighLevelWrapper, TLWrapperArgsDict
+from hrl_tl.wrappers.utils.spec_rep import Lv1SpecRep, SpecRepArgsDict
 
 if __name__ == "__main__":
     experiment_id: str = "3.a"
@@ -181,16 +182,23 @@ if __name__ == "__main__":
         "tl_wrapper_args": tl_wrapper_kwargs,
     }
 
+    spec_rep_class = Lv1SpecRep
+    spec_rep_args: SpecRepArgsDict = {
+        "num_clauses": num_clauses,
+        "predicate_names": [p.name for p in predicates],
+    }
+
     model_save_path: str = os.path.join(model_save_dir, model_name)
     animation_save_dir: str = os.path.join(model_save_path)
 
     env = gym.make("multigrid-rooms-v0", **env_kwargs)
     demo_env = TLHighLevelWrapper[NDArray[np.int64], np.int64, PolicyArgsDict](
         env,
+        spec_rep_class=spec_rep_class,
+        spec_rep_args=spec_rep_args,
         low_level_policy=maze_low_level_policy,
         low_level_policy_args=low_level_policy_args,
         max_low_level_policy_steps=max_low_level_policy_steps,
-        num_clauses=num_clauses,
         all_formulae_file_path=all_formulae_file_path,
         stay_action=np.int64(0),
         tl_wrapper_args=tl_wrapper_kwargs,
