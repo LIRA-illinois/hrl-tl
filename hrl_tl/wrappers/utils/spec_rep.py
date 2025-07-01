@@ -345,7 +345,7 @@ class Lv1SpecRep(SpecRep[NDArray[np.integer]], Generic[T_cov]):
             nvec=[self.num_predicates + 1] * (2 * self.num_clauses)
             + [2] * (2 * self.num_clauses)
             + [2] * 2,
-            dtype=np.integer,
+            dtype=np.int64,
         )
 
     def weights2tl(
