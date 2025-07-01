@@ -42,6 +42,17 @@ class TLWrapperArgs(BaseModel, Generic[ObsType, ActType]):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
+    def model_dump(self, *args, **kwargs):
+        # Override model_dump to ensure atomic_predicates is always a list of Predicate objects
+        d = super().model_dump(*args, **kwargs)
+        atomic_predicates = getattr(self, "atomic_predicates", None)
+        if atomic_predicates is not None and isinstance(atomic_predicates, list):
+            d["atomic_predicates"] = [
+                p if isinstance(p, Predicate) else Predicate(*p)
+                for p in atomic_predicates
+            ]
+        return d
+
 
 class TLWrapperArgsDict(TypedDict, Generic[ObsType, ActType], total=False):
     atomic_predicates: list[Predicate]
@@ -125,10 +136,7 @@ class TLHighLevelWrapper(
         self.specs: list[str] = all_formulae["specifications"]
 
         self.tl_wrapper_args = TLWrapperArgs.model_validate(tl_wrapper_args)
-        self.action_space = MultiDiscrete(
-            nvec=[3] * (len(self.tl_wrapper_args.atomic_predicates) * 4),
-            dtype=np.int64,
-        )
+        self.action_space = self.spec_rep.action_space
 
         self.low_level_env: Env[ObsType, ActType] = copy.deepcopy(env)
         self.low_level_policy = low_level_policy
