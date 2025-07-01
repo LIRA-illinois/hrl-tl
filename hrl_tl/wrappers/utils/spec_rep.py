@@ -106,7 +106,7 @@ class SpecRep(Generic[T_cov], ABC):
         tl_spec: str = self.weights2tl(tl_weights)
         # Convert the TL specification to LTL using Spot
         # Simplify the LTL specification
-        ltl_spec: str = f"{spot.simplify(spot.formula(tl_spec))}"
+        ltl_spec: str = f"{spot.simplify(spot.formula(tl_spec))}" if tl_spec else ""
 
         return ltl_spec
 
