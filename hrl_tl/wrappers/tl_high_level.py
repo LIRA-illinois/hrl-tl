@@ -185,7 +185,7 @@ class TLHighLevelWrapper(
 
             current_tl_spec = self.spec_rep.weights2ltl(action)
 
-            if current_tl_spec == "0" or current_tl_spec == "1":
+            if current_tl_spec == "0" or current_tl_spec == "1" or not current_tl_spec:
                 self.current_tl_spec = None
             else:
                 self.current_tl_spec = current_tl_spec
@@ -195,8 +195,14 @@ class TLHighLevelWrapper(
                         tl_spec=self.current_tl_spec,
                         **self.tl_wrapper_args.model_dump(),
                     )
-                except IndexError:
-                    raise ValueError(f"Invalid TL spec: {self.current_tl_spec}. ")
+                except IndexError as e:
+                    raise ValueError(
+                        f"Invalid TL spec: {self.current_tl_spec}. Error: {e}"
+                    )
+                except ValueError as e:
+                    raise ValueError(
+                        f"Invalid TL spec: {self.current_tl_spec}. Error: {e}"
+                    )
                 self.current_tl_env.automaton.reset()
                 self.current_tl_env.forward_aut(self.last_obs, self.last_info)
 
