@@ -593,7 +593,7 @@ spottl = "^2.13"
 type = "git"
 url = "https://github.com/miki-yuasa/gym-tl-tools.git"
 reference = "HEAD"
-resolved_reference = "32507f66c2edf3b529eb918a28084ccc52ebf687"
+resolved_reference = "1ee117b82dd4beffe22ccdf5f5562a507dfcc6b4"
 
 [[package]]
 name = "gymnasium"
