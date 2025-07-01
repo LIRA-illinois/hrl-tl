@@ -209,8 +209,8 @@ if __name__ == "__main__":
         os.makedirs(model_save_dir, exist_ok=True)
         model = PPO(
             **rl_config,
-            # env=high_level_env,
-            env=demo_env,
+            env=high_level_env,
+            # env=demo_env,
             verbose=1,
             tensorboard_log=os.path.join(model_save_dir, "tb"),
             device="cuda:{}".format(gpu_id),

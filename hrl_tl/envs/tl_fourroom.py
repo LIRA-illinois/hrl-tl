@@ -178,14 +178,14 @@ def maze_low_level_policy(
     )
     # If the model exists, load it; otherwise, train a new one
     if os.path.exists(model_path):
-        with (
-            open(os.devnull, "w") as devnull,
-            contextlib.redirect_stdout(devnull),
-            contextlib.redirect_stderr(devnull),
-        ):
-            model = policy_args.algorithm.load(
-                model_path, env=low_level_env, device=policy_args.device
-            )
+        # with (
+        #     open(os.devnull, "w") as devnull,
+        #     contextlib.redirect_stdout(devnull),
+        #     contextlib.redirect_stderr(devnull),
+        # ):
+        model = policy_args.algorithm.load(
+            model_path, env=low_level_env, device=policy_args.device
+        )
     else:
         os.makedirs(policy_args.model_save_dir, exist_ok=True)
         vec_env: VecEnv = SubprocVecEnv(
