@@ -125,6 +125,7 @@ class PolicyArgs(BaseModel):
 
 def maze_low_level_policy(
     obs: NDArray[np.int64],
+    aut_state: int,
     low_level_env: TLObservationReward[NDArray[np.int64], np.int64],
     args: PolicyArgsDict = {
         "algorithm": PPO,
@@ -216,6 +217,7 @@ def maze_low_level_policy(
         imageio.mimsave(video_save_path, frames, fps=10, dpi=300, loop=10)  # type: ignore
 
     # Predict the action using the model
-    action, _ = model.predict(obs)
+    obs_input: dict[str, Any] = {"obs": obs, "aut_state": aut_state}
+    action, _ = model.predict(obs_input)
     # Ensure action is a numpy int64 scalar
     return np.int64(action)
