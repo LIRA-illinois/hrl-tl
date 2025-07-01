@@ -39,7 +39,7 @@ if __name__ == "__main__":
     ]
     retrain_model: bool = False
     gpu_id: int = 1
-    model_name: str = "final_model"
+    model_name: str = "final_model.zip"
     model_save_dir: str = f"out/maze/ltl_ll/{experiment_id}/"
     total_timesteps: int = 50_000
     max_episode_steps: int = 100
@@ -171,21 +171,20 @@ if __name__ == "__main__":
         },
         "early_termination": True,
     }
-
-    high_level_wrapper_kwargs: dict[str, Any] = {
-        "low_level_policy": maze_low_level_policy,
-        "low_level_policy_args": low_level_policy_args,
-        "max_low_level_policy_steps": max_low_level_policy_steps,
-        "num_clauses": num_clauses,
-        "all_formulae_file_path": all_formulae_file_path,
-        "stay_action": np.int64(0),
-        "tl_wrapper_args": tl_wrapper_kwargs,
-    }
-
-    spec_rep_class = Lv1SpecRep
+    spec_rep_class: type[Lv1SpecRep] = Lv1SpecRep
     spec_rep_args: SpecRepArgsDict = {
         "num_clauses": num_clauses,
         "predicate_names": [p.name for p in predicates],
+    }
+    high_level_wrapper_kwargs: dict[str, Any] = {
+        "spec_rep_class": spec_rep_class,
+        "spec_rep_args": spec_rep_args,
+        "low_level_policy": maze_low_level_policy,
+        "low_level_policy_args": low_level_policy_args,
+        "max_low_level_policy_steps": max_low_level_policy_steps,
+        "all_formulae_file_path": all_formulae_file_path,
+        "stay_action": np.int64(0),
+        "tl_wrapper_args": tl_wrapper_kwargs,
     }
 
     model_save_path: str = os.path.join(model_save_dir, model_name)
@@ -193,15 +192,7 @@ if __name__ == "__main__":
 
     env = gym.make("multigrid-rooms-v0", **env_kwargs)
     demo_env = TLHighLevelWrapper[NDArray[np.int64], np.int64, PolicyArgsDict](
-        env,
-        spec_rep_class=spec_rep_class,
-        spec_rep_args=spec_rep_args,
-        low_level_policy=maze_low_level_policy,
-        low_level_policy_args=low_level_policy_args,
-        max_low_level_policy_steps=max_low_level_policy_steps,
-        all_formulae_file_path=all_formulae_file_path,
-        stay_action=np.int64(0),
-        tl_wrapper_args=tl_wrapper_kwargs,
+        env, **high_level_wrapper_kwargs
     )
 
     high_level_env = make_vec_env(

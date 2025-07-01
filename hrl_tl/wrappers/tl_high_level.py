@@ -147,19 +147,27 @@ class TLHighLevelWrapper(
             # Convert the high-level action to a temporal logic specification
             self.low_level_policy_step = 0
 
-            self.current_tl_spec = self.spec_rep.weights2ltl(action)
-            self.current_tl_env = TLObservationReward[ObsType, ActType](
-                copy.deepcopy(self.env),
-                tl_spec=self.current_tl_spec,
-                **self.tl_wrapper_args.model_dump(),
-            )
-            self.current_tl_env.automaton.reset()
+            current_tl_spec = self.spec_rep.weights2ltl(action)
 
-            if self.verbose:
-                print(
-                    f"- New TL spec: {self.current_tl_spec}, "
-                    f"-- Low-level policy step reset to 0"
-                )
+            if current_tl_spec == "0" or current_tl_spec == "1":
+                self.current_tl_spec = None
+            else:
+                self.current_tl_spec = current_tl_spec
+                try:
+                    self.current_tl_env = TLObservationReward[ObsType, ActType](
+                        copy.deepcopy(self.env),
+                        tl_spec=self.current_tl_spec,
+                        **self.tl_wrapper_args.model_dump(),
+                    )
+                except IndexError:
+                    raise ValueError(f"Invalid TL spec: {self.current_tl_spec}. ")
+                self.current_tl_env.automaton.reset()
+
+                if self.verbose:
+                    print(
+                        f"- New TL spec: {self.current_tl_spec}, "
+                        f"-- Low-level policy step reset to 0"
+                    )
         else:
             pass
 

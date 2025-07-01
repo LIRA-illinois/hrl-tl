@@ -384,7 +384,12 @@ class Lv1SpecRep(SpecRep[NDArray[np.integer]], Generic[T_cov]):
         ----------
         weights : list[int]
             The unique and sorted weights for the task specification.
-            Each element should be either 0 or 1, representing the presence or absence of a predicate in the clause.
+            Each element should be either {0, 1, ..., num_predicates}, where:
+                - 0: ""
+                - 1: predicate 1
+                - 2: predicate 2
+                - ...
+                - num_predicates: predicate num_predicates
         neg_flags : list[int]
             The negation flags for the predicates in the clause.
             Each element should be either 0 (not negated) or 1 (negated).
@@ -400,13 +405,16 @@ class Lv1SpecRep(SpecRep[NDArray[np.integer]], Generic[T_cov]):
             If multiple predicates are present, they are enclosed in parentheses.
         """
         used_preds: list[str] = []
-        for i, w in enumerate(clause_weights):
-            if w == 0:
+        for w, neg_flag in zip(clause_weights, neg_flags):
+            pred = self.all_predicates[w]
+            if pred == "":
+                # Empty string predicate, skip it
                 continue
-            pred = self.all_predicates[i]
-            if neg_flags[i] == 1:
-                pred = f"!{pred}"
-            used_preds.append(pred)
+            else:
+                if neg_flag == 1:
+                    pred = f"!{pred}"
+                used_preds.append(pred)
+
         if not used_preds:
             return ""
         elif len(used_preds) == 1:
