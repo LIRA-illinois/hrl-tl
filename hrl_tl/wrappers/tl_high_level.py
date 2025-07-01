@@ -63,7 +63,7 @@ class TLHighLevelWrapper(
         spec_rep_class: type[SpecRep],
         spec_rep_args: SpecRepArgsDict,
         low_level_policy: Callable[
-            [ObsType, TLObservationReward[ObsType, ActType], PolicyArgsType],
+            [ObsType, int, TLObservationReward[ObsType, ActType], PolicyArgsType],
             ActType,
         ],
         low_level_policy_args: PolicyArgsType = {},
@@ -73,6 +73,33 @@ class TLHighLevelWrapper(
         tl_wrapper_args: TLWrapperArgsDict[ObsType, ActType] = {},
         verbose: bool = False,
     ) -> None:
+        """
+        Initializes the TLHighLevelWrapper.
+
+        Parameters
+        ----------
+        env : Env[ObsType, ActType]
+            The environment to wrap.
+        spec_rep_class : type[SpecRep]
+            The specification representation class to use.
+        spec_rep_args : SpecRepArgsDict
+            Arguments for the specification representation class.
+        low_level_policy : Callable[[ObsType, int, TLObservationReward[ObsType, ActType], PolicyArgsType], ActType]
+            The low-level policy function that takes the observation, automaton state,
+            low-level environment, and policy arguments, and returns an action.
+        low_level_policy_args : PolicyArgsType, optional
+            Arguments for the low-level policy function (default is an empty dictionary).
+        max_low_level_policy_steps : int = 10
+            The maximum number of steps the low-level policy can take before resetting.
+        all_formulae_file_path : str = "out/maze/all_formulae_2_cla_2_max_pred.json"
+            Path to the JSON file containing all formulae specifications.
+        stay_action : ActType = np.int64(0)
+            The action to take when no valid temporal logic specification is available.
+        tl_wrapper_args : TLWrapperArgsDict[ObsType, ActType] = {}
+            Arguments for the TLObservationReward wrapper.
+        verbose : bool = False
+            If True, prints verbose output during execution.
+        """
         RecordConstructorArgs.__init__(
             self,
             spec_rep=spec_rep_class,
@@ -118,6 +145,7 @@ class TLHighLevelWrapper(
         """
         obs, info = self.env.reset(seed=seed, options=options)
         self.last_obs: ObsType = obs
+        self.last_info: dict[str, Any] = info
 
         self.low_level_policy_step: int = 0
         self.current_tl_spec: str | None = None
@@ -162,6 +190,7 @@ class TLHighLevelWrapper(
                 except IndexError:
                     raise ValueError(f"Invalid TL spec: {self.current_tl_spec}. ")
                 self.current_tl_env.automaton.reset()
+                self.current_tl_env.forward_aut(self.last_obs, self.last_info)
 
                 if self.verbose:
                     print(
@@ -179,7 +208,10 @@ class TLHighLevelWrapper(
             )
 
             low_level_action = self.low_level_policy(
-                self.last_obs, tl_env, self.low_level_policy_args
+                self.last_obs,
+                self.current_tl_env.automaton.current_state,
+                tl_env,
+                self.low_level_policy_args,
             )
 
             _, _, _, _, ll_info = self.current_tl_env.step(low_level_action)
@@ -208,6 +240,7 @@ class TLHighLevelWrapper(
 
         obs, reward, terminated, truncated, info = self.env.step(low_level_action)
         self.last_obs = obs
+        self.last_info = info
 
         self.low_level_policy_step += 1
 
