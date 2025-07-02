@@ -41,9 +41,9 @@ if __name__ == "__main__":
     gpu_id: int = 1
     model_name: str = "final_model.zip"
     model_save_dir: str = f"out/maze/ltl_ll/{experiment_id}/"
-    total_timesteps: int = 100_000
+    total_timesteps: int = 500_000
     max_episode_steps: int = 100
-    n_envs: int = 10
+    n_envs: int = 20
     callback_save_frequency: int = int(total_timesteps / 10 / n_envs)
     batch_size: int = 2_000
     rl_config: dict[str, Any] = {
