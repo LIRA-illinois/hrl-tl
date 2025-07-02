@@ -7,7 +7,6 @@ import numpy as np
 from gym_tl_tools import Predicate, RewardConfigDict, TLObservationReward
 from gymnasium import Env, Wrapper
 from gymnasium.core import ActType, ObsType
-from gymnasium.spaces import MultiDiscrete
 from gymnasium.utils import RecordConstructorArgs
 from numpy.typing import NDArray
 from pydantic import BaseModel, ConfigDict
