@@ -1,96 +1,18 @@
-import copy
 import os
-from abc import ABC, abstractmethod
-from typing import Any, Generic, TypedDict, TypeVar
+from abc import ABC
+from typing import Any, TypedDict
 
 import imageio
 import numpy as np
 from gym_tl_tools import TLObservationReward, replace_special_characters
-from gymnasium import Env
-from gymnasium.core import ActType, ObsType
+from gymnasium.core import ObsType
 from numpy.typing import NDArray
 from pydantic import BaseModel, ConfigDict
 from stable_baselines3 import PPO
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecEnv
 
-PolicyType = TypeVar("PolicyType")
-PolicyArgsType = TypeVar("PolicyArgsType")
-
-
-class TLObs(TypedDict):
-    obs: ObsType
-    aut_state: int
-
-
-class LowLevelPolicy(Generic[PolicyType, PolicyArgsType, ObsType, ActType], ABC):
-    def __init__(
-        self, tl_spec: str, max_policy_timesteps: int, policy_args: PolicyArgsType
-    ) -> None:
-        self.tl_spec: str = tl_spec
-        self.max_policy_timesteps: int = max_policy_timesteps
-
-        self.policy_step: int = 0
-        self.policy: PolicyType = self.define_policy(policy_args)
-
-    def update_env(
-        self,
-        current_env: Env[ObsType, ActType],
-        obs: ObsType,
-        info: dict[str, Any],
-        tl_wrapper_args: dict[str, Any] = {},
-    ) -> None:
-        """Update the environment and observation."""
-        self.tl_env = TLObservationReward[ObsType, ActType](
-            copy.deepcopy(current_env), tl_spec=self.tl_spec, **tl_wrapper_args
-        )
-        self.tl_env.automaton.reset()
-        self.tl_env.forward_aut(obs, info)
-
-    def predict(
-        self,
-        current_env: Env[ObsType, ActType],
-        obs: ObsType,
-        info: dict[str, Any],
-    ) -> tuple[ActType, bool, bool]:
-        """
-        Predict the action using the low-level policy.
-
-        Parameters
-        ----------
-        current_env: Env[ObsType, ActType]
-            The current environment in which the policy is acting.
-        obs: ObsType
-            The observation from the high-level environment.
-        info: dict[str, Any]
-            Additional information from the high-level environment, such as the current state of the automaton.
-
-        Returns
-        -------
-        action: ActType
-            The action predicted by the low-level policy.
-        terminated: bool
-            Whether the low-level policy has terminated.
-        truncated: bool
-            Whether the low-level policy has been truncated.
-
-        """
-        self.update_env(current_env, obs, info)
-        aut_state: int = self.tl_env.automaton.current_state
-        terminated: bool = self.tl_env.is_aut_terminated
-
-        obs_input: TLObs = {"obs": obs, "aut_state": aut_state}
-        action = self.act(obs_input, info)
-        self.policy_step += 1
-        truncated: bool = self.policy_step >= self.max_policy_timesteps
-
-        return action, terminated, truncated
-
-    @abstractmethod
-    def define_policy(self, policy_args: PolicyArgsType) -> PolicyType: ...
-
-    @abstractmethod
-    def act(self, obs: TLObs, info: dict[str, Any] | None = None) -> ActType: ...
+from hrl_tl.wrappers.utils.low_level_policies.base import LowLevelPolicy, TLObs
 
 
 class SB3PolicyArgsDict(TypedDict):
@@ -164,6 +86,7 @@ class SB3LowLevelPolicy(
     def __init__(
         self,
         tl_spec: str,
+        max_policy_steps: int = 10,
         policy_args: SB3PolicyArgsDict = {
             "algorithm": PPO,
             "algo_config": {
@@ -198,7 +121,7 @@ class SB3LowLevelPolicy(
             "device": "cuda:0",
         },
     ) -> None:
-        super().__init__(tl_spec, policy_args)
+        super().__init__(tl_spec, max_policy_steps, policy_args)
 
     def define_policy(self, policy_args: SB3PolicyArgsDict) -> BaseAlgorithm:
         self.policy_args = SB3PolicyArgs.model_validate(policy_args)
@@ -264,7 +187,7 @@ class SB3LowLevelPolicy(
 
         return policy
 
-    def act(self, obs: TLObs, info: dict[str, Any] | None = None) -> NDArray:
+    def act(self, obs: TLObs[ObsType], info: dict[str, Any] | None = None) -> NDArray:
         """
         Predict the action using the low-level policy.
         """
