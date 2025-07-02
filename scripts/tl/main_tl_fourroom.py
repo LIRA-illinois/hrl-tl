@@ -37,15 +37,15 @@ if __name__ == "__main__":
         Predicate(name="psi_lv", formula="d_lv < 0.5"),
         Predicate(name="psi_hl", formula="d_hl < 0.5"),
     ]
-    retrain_model: bool = False
+    retrain_model: bool = True
     gpu_id: int = 1
     model_name: str = "final_model.zip"
     model_save_dir: str = f"out/maze/ltl_ll/{experiment_id}/"
-    total_timesteps: int = 50_000
+    total_timesteps: int = 100_000
     max_episode_steps: int = 100
     n_envs: int = 10
     callback_save_frequency: int = int(total_timesteps / 10 / n_envs)
-    batch_size: int = 1_000
+    batch_size: int = 2_000
     rl_config: dict[str, Any] = {
         "policy": "MlpPolicy",
         "learning_rate": 0.0003,
