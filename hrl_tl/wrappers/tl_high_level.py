@@ -137,7 +137,6 @@ class TLHighLevelWrapper(
         self.tl_wrapper_args = TLWrapperArgs.model_validate(tl_wrapper_args)
         self.action_space = self.spec_rep.action_space
 
-        self.low_level_env: Env[ObsType, ActType] = copy.deepcopy(env)
         self.low_level_policy = low_level_policy
         self.low_level_policy_args = low_level_policy_args
         self.predicate_names = [
@@ -155,7 +154,6 @@ class TLHighLevelWrapper(
         self.last_info: dict[str, Any] = info
 
         self.low_level_policy_step: int = 0
-        self.current_tl_spec: str | None = None
         self.current_tl_env: TLObservationReward[ObsType, ActType] | None = None
 
         return obs, info
@@ -172,11 +170,13 @@ class TLHighLevelWrapper(
             print(
                 f"High-level action: {action}, "
                 f"Low-level policy step: {self.low_level_policy_step}, "
-                f"Current TL spec: {self.current_tl_spec}"
+                "Current TL spec: " + "none"
+                if not self.current_tl_env
+                else f"{self.current_tl_env.automaton.tl_spec}"
             )
 
         if (
-            self.current_tl_spec is None
+            self.current_tl_env is None
             or self.low_level_policy_step >= self.max_low_level_policy_steps
         ):
             # Convert the high-level action to a temporal logic specification
@@ -184,39 +184,43 @@ class TLHighLevelWrapper(
 
             current_tl_spec = self.spec_rep.weights2ltl(action)
 
-            if current_tl_spec == "0" or current_tl_spec == "1" or not current_tl_spec:
-                self.current_tl_spec = None
+            if (
+                current_tl_spec == "0"
+                or current_tl_spec == "1"
+                or not current_tl_spec
+                or current_tl_spec not in self.specs
+            ):
+                if self.verbose:
+                    print(f"- Invalid TL spec: {current_tl_spec}, ")
+                self.current_tl_env = None
             else:
-                self.current_tl_spec = current_tl_spec
                 try:
                     self.current_tl_env = TLObservationReward[ObsType, ActType](
                         copy.deepcopy(self.env),
-                        tl_spec=self.current_tl_spec,
+                        tl_spec=current_tl_spec,
                         **self.tl_wrapper_args.model_dump(),
                     )
                 except IndexError as e:
-                    raise ValueError(
-                        f"Invalid TL spec: {self.current_tl_spec}. Error: {e}"
-                    )
+                    raise ValueError(f"Invalid TL spec: {current_tl_spec}. Error: {e}")
                 except ValueError as e:
-                    raise ValueError(
-                        f"Invalid TL spec: {self.current_tl_spec}. Error: {e}"
-                    )
+                    raise ValueError(f"Invalid TL spec: {current_tl_spec}. Error: {e}")
                 self.current_tl_env.automaton.reset()
                 self.current_tl_env.forward_aut(self.last_obs, self.last_info)
 
                 if self.verbose:
                     print(
-                        f"- New TL spec: {self.current_tl_spec}, "
+                        f"- New TL spec: {self.current_tl_env.automaton.tl_spec}, "
                         f"-- Low-level policy step reset to 0"
                     )
         else:
             pass
 
-        if self.current_tl_spec in self.specs and self.current_tl_env is not None:
+        low_level_action: ActType
+
+        if self.current_tl_env is not None:
             tl_env = TLObservationReward[ObsType, ActType](
-                self.low_level_env,
-                tl_spec=self.current_tl_spec,
+                copy.deepcopy(self.env),
+                tl_spec=self.current_tl_env.automaton.tl_spec,
                 **self.tl_wrapper_args.model_dump(),
             )
 
@@ -230,7 +234,6 @@ class TLHighLevelWrapper(
             _, _, _, _, ll_info = self.current_tl_env.step(low_level_action)
 
             if ll_info["is_aut_terminated"]:
-                self.current_tl_spec = None
                 self.current_tl_env = None
 
             if self.verbose:
@@ -241,15 +244,9 @@ class TLHighLevelWrapper(
                 )
         else:
             # If the specification is not in the list, we return the stay action
-            self.current_tl_spec = None
-            self.current_tl_env = None
             low_level_action = self.stay_action
-
             if self.verbose:
-                print(
-                    f"- Current TL spec '{self.current_tl_spec}' not in specs, "
-                    f"-- using stay action: {low_level_action}"
-                )
+                print(f"-- using stay action: {low_level_action}")
 
         obs, reward, terminated, truncated, info = self.env.step(low_level_action)
         self.last_obs = obs
