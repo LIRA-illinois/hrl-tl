@@ -9,14 +9,12 @@ import numpy as np
 from gym_tl_tools import Predicate
 from numpy.typing import NDArray
 from stable_baselines3 import PPO
+from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env.subproc_vec_env import SubprocVecEnv
 
-from hrl_tl.envs.tl_fourroom import (
-    PolicyArgsDict,
-    maze_low_level_policy,
-    var_value_info_generator,
-)
+from hrl_tl.envs.tl_fourroom import PolicyArgsDict, var_value_info_generator
+from hrl_tl.utils.io import format_timesteps
 from hrl_tl.wrappers.tl_high_level import TLHighLevelWrapper, TLWrapperArgsDict
 from hrl_tl.wrappers.utils.low_level_policies.sb3 import (
     SB3LowLevelPolicy,
@@ -44,11 +42,8 @@ if __name__ == "__main__":
     retrain_model: bool = False
     gpu_id: int = 1
     total_timesteps: int = 1_000_000
-    model_name: str = (
-        "final_model.zip"
-        if total_timesteps == 500_000
-        else f"final_model_{total_timesteps}"
-    )
+    model_name: str = f"hl_policy_{format_timesteps(total_timesteps)}"
+
     model_save_dir: str = f"out/maze/ltl_ll/{experiment_id}/"
     max_episode_steps: int = 100
     n_envs: int = 20
@@ -224,7 +219,18 @@ if __name__ == "__main__":
             tensorboard_log=os.path.join(model_save_dir, "tb"),
             device="cuda:{}".format(gpu_id),
         )
-        model.learn(total_timesteps=total_timesteps)
+        ckpt_callback = CheckpointCallback(
+            save_freq=callback_save_frequency,
+            save_path=model_save_path,
+            name_prefix="ckpt",
+            save_replay_buffer=False,
+            save_vecnormalize=False,
+        )
+        model.learn(
+            total_timesteps=total_timesteps,
+            tb_log_name=model_name,
+            callback=ckpt_callback,
+        )
         high_level_env.close()
         # Save the model
         model.save(os.path.join(model_save_path, "final_model"))
