@@ -17,11 +17,17 @@ class TLObs(TypedDict, Generic[ObsType]):
 
 class LowLevelPolicy(Generic[PolicyType, PolicyArgsType, ObsType, ActType], ABC):
     def __init__(
-        self, tl_spec: str, max_policy_steps: int, policy_args: PolicyArgsType
+        self,
+        env: Env[ObsType, ActType],
+        tl_spec: str,
+        max_policy_steps: int,
+        policy_args: PolicyArgsType,
+        tl_wrapper_args: dict[str, Any] = {},
     ) -> None:
+        self.env: Env[ObsType, ActType] = env
         self.tl_spec: str = tl_spec
         self.max_policy_steps: int = max_policy_steps
-
+        self.tl_wrapper_args: dict[str, Any] = tl_wrapper_args
         self.policy_step: int = 0
         self.policy: PolicyType = self.define_policy(policy_args)
 

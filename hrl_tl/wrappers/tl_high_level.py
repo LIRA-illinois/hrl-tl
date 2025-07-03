@@ -187,9 +187,11 @@ class TLHighLevelWrapper(
             else:
                 try:
                     self.low_level_policy = self.low_level_policy_class(
+                        env=self.env,
                         tl_spec=current_tl_spec,
                         max_policy_steps=self.max_low_level_policy_steps,
                         policy_args=self.low_level_policy_args,
+                        tl_wrapper_args=self.tl_wrapper_args.model_dump(),
                     )
 
                 except IndexError as e:

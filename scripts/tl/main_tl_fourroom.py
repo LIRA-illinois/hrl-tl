@@ -43,7 +43,7 @@ if __name__ == "__main__":
     ]
     retrain_model: bool = False
     gpu_id: int = 1
-    total_timesteps: int = 500_000
+    total_timesteps: int = 1_000_000
     model_name: str = (
         "final_model.zip"
         if total_timesteps == 500_000

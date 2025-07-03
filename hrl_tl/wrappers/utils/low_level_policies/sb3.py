@@ -1,3 +1,4 @@
+import copy
 import os
 from abc import ABC
 from typing import Any, TypedDict
@@ -5,6 +6,7 @@ from typing import Any, TypedDict
 import imageio
 import numpy as np
 from gym_tl_tools import TLObservationReward, replace_special_characters
+from gymnasium import Env
 from gymnasium.core import ObsType
 from numpy.typing import NDArray
 from pydantic import BaseModel, ConfigDict
@@ -85,6 +87,7 @@ class SB3LowLevelPolicy(
 
     def __init__(
         self,
+        env: Env[ObsType, NDArray],
         tl_spec: str,
         max_policy_steps: int = 10,
         policy_args: SB3PolicyArgsDict = {
@@ -120,8 +123,9 @@ class SB3LowLevelPolicy(
             },
             "device": "cuda:0",
         },
+        tl_wrapper_args: dict[str, Any] = {},
     ) -> None:
-        super().__init__(tl_spec, max_policy_steps, policy_args)
+        super().__init__(env, tl_spec, max_policy_steps, policy_args, tl_wrapper_args)
 
     def define_policy(self, policy_args: SB3PolicyArgsDict) -> BaseAlgorithm:
         self.policy_args = SB3PolicyArgs.model_validate(policy_args)
@@ -145,13 +149,11 @@ class SB3LowLevelPolicy(
             )
         else:
             print(f"Model not found at {model_path}, training a new model.")
-            training_env: TLObservationReward | None = self.policy_args.algo_config.get(
-                "env"
+            training_env: TLObservationReward = TLObservationReward(
+                copy.deepcopy(self.env),
+                tl_spec=self.tl_spec,
+                **self.tl_wrapper_args,
             )
-            if not isinstance(training_env, TLObservationReward):
-                raise ValueError(
-                    "The 'env' in algo_config must be a TLObservationReward instance."
-                )
             vec_env: VecEnv = SubprocVecEnv(
                 [lambda: training_env] * self.policy_args.training_config.n_envs
             )
