@@ -30,7 +30,7 @@ class LowLevelPolicy(Generic[PolicyType, PolicyArgsType, ObsType, ActType], ABC)
         current_env: Env[ObsType, ActType],
         obs: ObsType,
         info: dict[str, Any],
-        tl_wrapper_args: dict[str, Any] = {},
+        tl_wrapper_args: dict[str, Any],
     ) -> None:
         """Update the environment and observation."""
         self.tl_env = TLObservationReward[ObsType, ActType](
@@ -39,11 +39,17 @@ class LowLevelPolicy(Generic[PolicyType, PolicyArgsType, ObsType, ActType], ABC)
         self.tl_env.automaton.reset()
         self.tl_env.forward_aut(obs, info)
 
+    @property
+    def is_aut_terminated(self) -> bool:
+        """Check if the automaton has terminated."""
+        return self.tl_env.is_aut_terminated
+
     def predict(
         self,
         current_env: Env[ObsType, ActType],
         obs: ObsType,
         info: dict[str, Any],
+        tl_wrapper_args: dict[str, Any],
     ) -> tuple[ActType, bool, bool]:
         """
         Predict the action using the low-level policy.
@@ -67,7 +73,7 @@ class LowLevelPolicy(Generic[PolicyType, PolicyArgsType, ObsType, ActType], ABC)
             Whether the low-level policy has been truncated.
 
         """
-        self.update_env(current_env, obs, info)
+        self.update_env(current_env, obs, info, tl_wrapper_args)
         aut_state: int = self.tl_env.automaton.current_state
         terminated: bool = self.tl_env.is_aut_terminated
 

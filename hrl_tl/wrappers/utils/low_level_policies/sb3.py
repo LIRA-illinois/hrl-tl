@@ -191,10 +191,7 @@ class SB3LowLevelPolicy(
         """
         Predict the action using the low-level policy.
         """
-        obs_input: dict[str, Any] = {"obs": obs}
-        if info is not None:
-            obs_input["aut_state"] = info.get("aut_state", None)
 
-        action, _ = self.policy.predict(obs_input)
+        action, _ = self.policy.predict(obs)
         # Ensure action is a numpy int64 scalar
         return action

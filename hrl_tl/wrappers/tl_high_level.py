@@ -11,19 +11,12 @@ from gymnasium.utils import RecordConstructorArgs
 from numpy.typing import NDArray
 from pydantic import BaseModel, ConfigDict
 
+from hrl_tl.wrappers.utils.low_level_policies import (
+    LowLevelPolicy,
+    PolicyArgsType,
+    PolicyType,
+)
 from hrl_tl.wrappers.utils.spec_rep import SpecRep, SpecRepArgsDict
-
-LowLevelObsType = TypeVar("LowLevelObsType", covariant=True)
-LowLevelActType = TypeVar("LowLevelActType", covariant=True)
-PolicyArgsType = TypeVar("PolicyArgsType", covariant=True)
-
-
-class LowLevelEnv(Protocol, Generic[LowLevelObsType, LowLevelActType]):
-    def step(
-        self, action
-    ) -> tuple[LowLevelObsType, SupportsFloat, bool, bool, dict[str, Any]]: ...
-
-    def reset(self) -> tuple[LowLevelActType, dict[str, Any]]: ...
 
 
 class TLWrapperArgs(BaseModel, Generic[ObsType, ActType]):
@@ -65,16 +58,15 @@ class TLWrapperArgsDict(TypedDict, Generic[ObsType, ActType], total=False):
 class TLHighLevelWrapper(
     Wrapper[ObsType, NDArray[np.integer], ObsType, ActType],
     RecordConstructorArgs,
-    Generic[ObsType, ActType, PolicyArgsType],
+    Generic[ObsType, ActType, PolicyType, PolicyArgsType],
 ):
     def __init__(
         self,
         env: Env[ObsType, ActType],
         spec_rep_class: type[SpecRep],
         spec_rep_args: SpecRepArgsDict,
-        low_level_policy: Callable[
-            [ObsType, int, TLObservationReward[ObsType, ActType], PolicyArgsType],
-            ActType,
+        low_level_policy_class: type[
+            LowLevelPolicy[PolicyType, PolicyArgsType, ObsType, ActType]
         ],
         low_level_policy_args: PolicyArgsType = {},
         max_low_level_policy_steps: int = 10,
@@ -114,7 +106,7 @@ class TLHighLevelWrapper(
             self,
             spec_rep=spec_rep_class,
             spec_rep_args=spec_rep_args,
-            low_level_policy=low_level_policy,
+            low_level_policy_class=low_level_policy_class,
             low_level_policy_args=low_level_policy_args,
             max_low_level_policy_steps=max_low_level_policy_steps,
             all_formulae_file_path=all_formulae_file_path,
@@ -137,7 +129,7 @@ class TLHighLevelWrapper(
         self.tl_wrapper_args = TLWrapperArgs.model_validate(tl_wrapper_args)
         self.action_space = self.spec_rep.action_space
 
-        self.low_level_policy = low_level_policy
+        self.low_level_policy_class = low_level_policy_class
         self.low_level_policy_args = low_level_policy_args
         self.predicate_names = [
             predicate.name for predicate in self.tl_wrapper_args.atomic_predicates
@@ -153,8 +145,11 @@ class TLHighLevelWrapper(
         self.last_obs: ObsType = obs
         self.last_info: dict[str, Any] = info
 
-        self.low_level_policy_step: int = 0
-        self.current_tl_env: TLObservationReward[ObsType, ActType] | None = None
+        # self.low_level_policy_step: int = 0
+        # self.current_tl_env: TLObservationReward[ObsType, ActType] | None = None
+        self.low_level_policy: (
+            LowLevelPolicy[PolicyType, PolicyArgsType, ObsType, ActType] | None
+        ) = None
 
         return obs, info
 
@@ -168,21 +163,17 @@ class TLHighLevelWrapper(
 
         if self.verbose:
             print(
-                f"High-level action: {action}, "
-                f"Low-level policy step: {self.low_level_policy_step}, "
+                f"High-level action: {action},\n"
+                f"Low-level policy step: {self.low_level_policy.policy_step if self.low_level_policy else 0},\n"
                 "Current TL spec: " + "none"
-                if not self.current_tl_env
-                else f"{self.current_tl_env.automaton.tl_spec}"
+                if not self.low_level_policy
+                else f"{self.low_level_policy.tl_spec}"
             )
 
-        if (
-            self.current_tl_env is None
-            or self.low_level_policy_step >= self.max_low_level_policy_steps
-        ):
+        if not self.low_level_policy:
             # Convert the high-level action to a temporal logic specification
-            self.low_level_policy_step = 0
 
-            current_tl_spec = self.spec_rep.weights2ltl(action)
+            current_tl_spec: str = self.spec_rep.weights2ltl(action)
 
             if (
                 current_tl_spec == "0"
@@ -192,56 +183,70 @@ class TLHighLevelWrapper(
             ):
                 if self.verbose:
                     print(f"- Invalid TL spec: {current_tl_spec}, ")
-                self.current_tl_env = None
+                self.low_level_policy = None
             else:
                 try:
-                    self.current_tl_env = TLObservationReward[ObsType, ActType](
-                        copy.deepcopy(self.env),
+                    self.low_level_policy = self.low_level_policy_class(
                         tl_spec=current_tl_spec,
-                        **self.tl_wrapper_args.model_dump(),
+                        max_policy_steps=self.max_low_level_policy_steps,
+                        policy_args=self.low_level_policy_args,
                     )
+
                 except IndexError as e:
                     raise ValueError(f"Invalid TL spec: {current_tl_spec}. Error: {e}")
                 except ValueError as e:
                     raise ValueError(f"Invalid TL spec: {current_tl_spec}. Error: {e}")
-                self.current_tl_env.automaton.reset()
-                self.current_tl_env.forward_aut(self.last_obs, self.last_info)
 
-                if self.verbose:
-                    print(
-                        f"- New TL spec: {self.current_tl_env.automaton.tl_spec}, "
-                        f"-- Low-level policy step reset to 0"
-                    )
+                self.low_level_policy.update_env(
+                    self.env,
+                    self.last_obs,
+                    self.last_info,
+                    tl_wrapper_args=self.tl_wrapper_args.model_dump(),
+                )
+                if self.low_level_policy.is_aut_terminated:
+                    # If the automaton is terminated, we reset the low-level policy
+                    self.low_level_policy = None
+                    if self.verbose:
+                        print(
+                            f"- Automaton terminated for TL spec: {current_tl_spec},\n"
+                            f"-- Low-level policy reset to None"
+                        )
+                else:
+                    if self.verbose:
+                        print(
+                            f"- New TL spec: {self.low_level_policy.tl_spec},\n"
+                            f"-- Low-level policy step reset to 0"
+                        )
         else:
             pass
 
+        added_info: dict[str, str | None] = {
+            "current_tl_spec": (
+                self.low_level_policy.tl_spec if self.low_level_policy else None
+            )
+        }
+
         low_level_action: ActType
 
-        if self.current_tl_env is not None:
-            tl_env = TLObservationReward[ObsType, ActType](
-                copy.deepcopy(self.env),
-                tl_spec=self.current_tl_env.automaton.tl_spec,
-                **self.tl_wrapper_args.model_dump(),
+        if self.low_level_policy:
+            low_level_action, ll_terminated, ll_truncated = (
+                self.low_level_policy.predict(
+                    self.env,
+                    self.last_obs,
+                    self.last_info,
+                    tl_wrapper_args=self.tl_wrapper_args.model_dump(),
+                )
             )
-
-            low_level_action = self.low_level_policy(
-                self.last_obs,
-                self.current_tl_env.automaton.current_state,
-                tl_env,
-                self.low_level_policy_args,
-            )
-
-            _, _, _, _, ll_info = self.current_tl_env.step(low_level_action)
-
-            if ll_info["is_aut_terminated"]:
-                self.current_tl_env = None
-
             if self.verbose:
                 print(
-                    f"- Low-level action: {low_level_action}, "
-                    f"-- Low-level policy step: {self.low_level_policy_step}, "
-                    f"-- Is automaton terminated: {ll_info['is_aut_terminated']}"
+                    f"- Low-level action: {low_level_action},\n"
+                    f"-- Low-level policy step: {self.low_level_policy.policy_step},\n"
+                    f"-- Is automaton terminated: {ll_terminated}, "
                 )
+
+            self.low_level_policy = (
+                None if ll_terminated or ll_truncated else self.low_level_policy
+            )
         else:
             # If the specification is not in the list, we return the stay action
             low_level_action = self.stay_action
@@ -249,9 +254,13 @@ class TLHighLevelWrapper(
                 print(f"-- using stay action: {low_level_action}")
 
         obs, reward, terminated, truncated, info = self.env.step(low_level_action)
+
+        # Update the info for
+        # info.update({"current_tl_spec": (current_tl_spec)})
+        info.update(added_info)
         self.last_obs = obs
         self.last_info = info
 
-        self.low_level_policy_step += 1
+        # self.low_level_policy_step += 1
 
         return obs, reward, terminated, truncated, info

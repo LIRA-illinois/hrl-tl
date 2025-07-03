@@ -18,6 +18,10 @@ from hrl_tl.envs.tl_fourroom import (
     var_value_info_generator,
 )
 from hrl_tl.wrappers.tl_high_level import TLHighLevelWrapper, TLWrapperArgsDict
+from hrl_tl.wrappers.utils.low_level_policies.sb3 import (
+    SB3LowLevelPolicy,
+    SB3PolicyArgsDict,
+)
 from hrl_tl.wrappers.utils.spec_rep import Lv1SpecRep, SpecRepArgsDict
 
 if __name__ == "__main__":
@@ -37,11 +41,15 @@ if __name__ == "__main__":
         Predicate(name="psi_lv", formula="d_lv < 0.5"),
         Predicate(name="psi_hl", formula="d_hl < 0.5"),
     ]
-    retrain_model: bool = True
+    retrain_model: bool = False
     gpu_id: int = 1
-    model_name: str = "final_model.zip"
-    model_save_dir: str = f"out/maze/ltl_ll/{experiment_id}/"
     total_timesteps: int = 500_000
+    model_name: str = (
+        "final_model.zip"
+        if total_timesteps == 500_000
+        else f"final_model_{total_timesteps}"
+    )
+    model_save_dir: str = f"out/maze/ltl_ll/{experiment_id}/"
     max_episode_steps: int = 100
     n_envs: int = 20
     callback_save_frequency: int = int(total_timesteps / 10 / n_envs)
@@ -128,11 +136,12 @@ if __name__ == "__main__":
             ],
         },
     }
-    low_level_policy_args: PolicyArgsDict = {
+    low_level_policy_args: SB3PolicyArgsDict = {
         "algorithm": PPO,
         "algo_config": {
             "policy": "MultiInputPolicy",
             "learning_rate": 0.0003,
+            "env": None,
             "n_steps": 1000,
             "batch_size": 1000,
             "n_epochs": 40,
@@ -179,7 +188,7 @@ if __name__ == "__main__":
     high_level_wrapper_kwargs: dict[str, Any] = {
         "spec_rep_class": spec_rep_class,
         "spec_rep_args": spec_rep_args,
-        "low_level_policy": maze_low_level_policy,
+        "low_level_policy_class": SB3LowLevelPolicy,
         "low_level_policy_args": low_level_policy_args,
         "max_low_level_policy_steps": max_low_level_policy_steps,
         "all_formulae_file_path": all_formulae_file_path,
@@ -191,9 +200,9 @@ if __name__ == "__main__":
     animation_save_dir: str = os.path.join(model_save_path)
 
     env = gym.make("multigrid-rooms-v0", **env_kwargs)
-    demo_env = TLHighLevelWrapper[NDArray[np.int64], np.int64, PolicyArgsDict](
-        env, **high_level_wrapper_kwargs
-    )
+    demo_env = TLHighLevelWrapper[
+        NDArray[np.int64], np.int64, SB3LowLevelPolicy, PolicyArgsDict
+    ](env, verbose=True, **high_level_wrapper_kwargs)
 
     high_level_env = make_vec_env(
         "multigrid-rooms-v0",
@@ -221,17 +230,17 @@ if __name__ == "__main__":
         model.save(os.path.join(model_save_path, "final_model"))
     else:
         print(f"Model {model_name} already exists, loading...")
-        model = PPO.load(
-            os.path.join(model_save_path, "final_model"), env=high_level_env
-        )
+        model = PPO.load(os.path.join(model_save_path, "final_model"), env=demo_env)
     # Save the animation
 
     # Video generation using imageio
-    obs, _ = demo_env.reset()
+    obs, info = demo_env.reset()
     terminated: bool = False
     truncated: bool = False
     frames = [demo_env.render()]
     rewards: list[float] = []
+    chosen_specs: list[tuple[int, str]] = []
+    step: int = 0
     while not (terminated or truncated):
         action, _ = model.predict(obs)
         # Ensure action is a numpy int64 scalar
@@ -242,8 +251,13 @@ if __name__ == "__main__":
         rewards.append(reward)
         frame = demo_env.render()
         frames.append(frame)
+        chosen_specs.append((step, info["current_tl_spec"]))
+        step += 1
     demo_env.close()
     print(f"Total reward: {sum(rewards)}")
+    print("Chosen specs:")
+    for step, spec in chosen_specs:
+        print(f"- Step {step}: {spec}")
     video_path = os.path.join(animation_save_dir, f"{model_name}.gif")
     os.makedirs(animation_save_dir, exist_ok=True)
     imageio.mimsave(video_path, frames, fps=10, dpi=300, loop=10)  # type: ignore
